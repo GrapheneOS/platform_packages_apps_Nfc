@@ -113,9 +113,9 @@ public class NfcService implements DeviceHostListener {
     public static final String PREF = "NfcServicePrefs";
 
     static final String PREF_NFC_ON = "nfc_on";
-    static final boolean NFC_ON_DEFAULT = true;
+    static final boolean NFC_ON_DEFAULT = false;
     static final String PREF_NDEF_PUSH_ON = "ndef_push_on";
-    static final boolean NDEF_PUSH_ON_DEFAULT = true;
+    static final boolean NDEF_PUSH_ON_DEFAULT = false;
     static final String PREF_FIRST_BEAM = "first_beam";
     static final String PREF_FIRST_BOOT = "first_boot";
 
