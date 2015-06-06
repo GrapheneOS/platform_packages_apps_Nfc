@@ -144,7 +144,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     public static final String PREF_TAG_APP_LIST = "TagIntentAppPreferenceListPrefs";
 
     static final String PREF_NFC_ON = "nfc_on";
-    static final boolean NFC_ON_DEFAULT = true;
+    static final boolean NFC_ON_DEFAULT = false;
 
     static final String PREF_NFC_READER_OPTION_ON = "nfc_reader_on";
     static final boolean NFC_READER_OPTION_DEFAULT = true;
