@@ -280,7 +280,7 @@ static jboolean nativeLlcpConnectionlessSocket_doClose(JNIEnv* e, jobject o) {
 ** Description:     JNI functions
 **
 *****************************************************************************/
-static JNINativeMethod gMethods[] = {
+static const JNINativeMethod gMethods[] = {
     {"doSendTo", "(I[B)Z", (void*)nativeLlcpConnectionlessSocket_doSendTo},
     {"doReceiveFrom", "(I)Lcom/android/nfc/LlcpPacket;",
      (void*)nativeLlcpConnectionlessSocket_doReceiveFrom},
