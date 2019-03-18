@@ -1968,7 +1968,7 @@ static jboolean nfcManager_doSetNfcSecure(JNIEnv* e, jobject o,
 ** JNI functions for android-4.0.1_r1
 **
 *****************************************************************************/
-static JNINativeMethod gMethods[] = {
+static const JNINativeMethod gMethods[] = {
     {"doDownload", "()Z", (void*)nfcManager_doDownload},
 
     {"initializeNativeStructure", "()Z", (void*)nfcManager_initNativeStruc},
