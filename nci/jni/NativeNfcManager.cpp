@@ -98,6 +98,7 @@ jmethodID gCachedNfcManagerNotifyEeUpdated;
 jmethodID gCachedNfcManagerNotifyHwErrorReported;
 jmethodID gCachedNfcManagerNotifyPollingLoopFrame;
 jmethodID gCachedNfcManagerNotifyWlcStopped;
+jmethodID gCachedNfcManagerNotifyVendorSpecificEvent;
 const char* gNativeP2pDeviceClassName =
     "com/android/nfc/dhimpl/NativeP2pDevice";
 const char* gNativeNfcTagClassName = "com/android/nfc/dhimpl/NativeNfcTag";
@@ -679,6 +680,9 @@ static jboolean nfcManager_initNativeStruc(JNIEnv* e, jobject o) {
   gCachedNfcManagerNotifyPollingLoopFrame =
       e->GetMethodID(cls.get(), "notifyPollingLoopFrame", "(I[B)V");
 
+  gCachedNfcManagerNotifyVendorSpecificEvent =
+      e->GetMethodID(cls.get(), "notifyVendorSpecificEvent", "(II[B)V");
+
   gCachedNfcManagerNotifyWlcStopped =
       e->GetMethodID(cls.get(), "notifyWlcStopped", "(I)V");
 
@@ -1055,8 +1059,32 @@ void static nfaVSCallback(uint8_t event, uint16_t param_len, uint8_t* p_param) {
                                      android_sub_opcode);
       }
     } break;
-    default:
-      break;
+    default: {
+      struct nfc_jni_native_data* nat = getNative(NULL, NULL);
+      if (!nat) {
+        LOG(ERROR) << StringPrintf("%s: cached nat is null", __FUNCTION__);
+        return;
+      }
+      JNIEnv* e = NULL;
+      ScopedAttach attach(nat->vm, &e);
+      if (e == NULL) {
+        LOG(ERROR) << StringPrintf("%s: jni env is null", __FUNCTION__);
+      return;
+      }
+      ScopedLocalRef<jobject> dataJavaArray(e, e->NewByteArray(param_len));
+      if (dataJavaArray.get() == NULL) {
+        LOG(ERROR) << StringPrintf("%s: fail allocate array", __FUNCTION__);
+        return;
+      }
+      e->SetByteArrayRegion((jbyteArray)dataJavaArray.get(), 0, param_len, (jbyte*)(p_param));
+      if (e->ExceptionCheck()) {
+        e->ExceptionClear();
+        LOG(ERROR) << StringPrintf("%s failed to fill array", __FUNCTION__);
+        return;
+      }
+      e->CallVoidMethod(nat->manager, android::gCachedNfcManagerNotifyVendorSpecificEvent,
+                        (jint)event, (jint)param_len, dataJavaArray.get());
+    } break;
   }
 }
 
@@ -1337,7 +1365,7 @@ static jboolean nfcManager_doInitialize(JNIEnv* e, jobject o) {
 TheEnd:
   if (sIsNfaEnabled) {
     PowerSwitch::getInstance().setLevel(PowerSwitch::LOW_POWER);
-    if (android_nfc_nfc_read_polling_loop()) {
+    if (android_nfc_nfc_read_polling_loop() || android_nfc_nfc_vendor_cmd()) {
       NFA_RegVSCback(true, &nfaVSCallback);
     }
   }

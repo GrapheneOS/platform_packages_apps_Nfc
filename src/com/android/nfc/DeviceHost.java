@@ -46,6 +46,8 @@ public interface DeviceHost {
         public void onPollingLoopDetected(Bundle pollingFrame);
 
         public void onWlcStopped(int wpt_end_condition);
+
+        public void onVendorSpecificEvent(int gid, int oid, byte[] payload);
     }
 
     public interface TagEndpoint {

@@ -582,13 +582,13 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
 
         @Override
-        public boolean setDefaultToObserveModeForService(int userId,
+        public boolean setShouldDefaultToObserveModeForService(int userId,
             ComponentName service, boolean enable) {
             NfcPermissions.validateUserId(userId);
             if (!isServiceRegistered(userId, service)) {
                 return false;
             }
-            return mServiceCache.setDefaultToObserveModeForService(userId, Binder.getCallingUid(),
+            return mServiceCache.setShouldDefaultToObserveModeForService(userId, Binder.getCallingUid(),
                 service, enable);
         }
 
@@ -950,7 +950,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
         NfcService.getInstance().onPreferredPaymentChanged(
                 NfcAdapter.PREFERRED_PAYMENT_CHANGED);
-        updateForDefaultToObserveMode(userId);
+        updateForShouldDefaultToObserveMode(userId);
     }
 
     @Override
@@ -961,9 +961,9 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
         NfcService.getInstance().onPreferredPaymentChanged(
                 NfcAdapter.PREFERRED_PAYMENT_CHANGED);
-        updateForDefaultToObserveMode(userId);
+        updateForShouldDefaultToObserveMode(userId);
     }
-    private void updateForDefaultToObserveMode(int userId) {
+    private void updateForShouldDefaultToObserveMode(int userId) {
         long token = Binder.clearCallingIdentity();
         try {
             if (!android.nfc.Flags.nfcObserveMode()) {
@@ -979,7 +979,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             return;
         }
         ComponentName preferredService = mAidCache.getPreferredService();
-        boolean enableObserveMode = mServiceCache.doesServiceDefaultToObserveMode(userId,
+        boolean enableObserveMode = mServiceCache.doesServiceShouldDefaultToObserveMode(userId,
                 preferredService);
         adapter.setObserveModeEnabled(enableObserveMode);
 
