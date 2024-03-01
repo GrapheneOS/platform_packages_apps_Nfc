@@ -32,6 +32,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.Iterator;
 
 /** Native interface to the NFC Manager functions */
@@ -430,7 +431,7 @@ public class NativeNfcManager implements DeviceHost {
         while (pos + TLV_len_offset < data_len) {
             int type = p_data[pos + TLV_type_offset];
             int length = p_data[pos + TLV_len_offset];
-            if (length < 6 ) {
+            if (TLV_len_offset + length < TLV_gain_offset ) {
                 Log.e(TAG, "Length (" + length + ") is less than a polling frame, dropping.");
                 return;
             }
