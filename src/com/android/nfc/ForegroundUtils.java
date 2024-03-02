@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class ForegroundUtils implements ActivityManager.OnUidImportanceListener {
-    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
     private final String TAG = "ForegroundUtils";
     private final ActivityManager mActivityManager;
 

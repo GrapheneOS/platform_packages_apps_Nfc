@@ -37,7 +37,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class NfcCharging {
-    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
     private static final String TAG = "NfcWlcChargingActivity";
 
     static final String VERSION = "1.0.0";

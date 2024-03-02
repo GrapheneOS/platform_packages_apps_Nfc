@@ -67,7 +67,7 @@ import java.util.TreeMap;
 
 public class HostEmulationManager {
     static final String TAG = "HostEmulationManager";
-    static final boolean DBG = NfcProperties.debug_enabled().orElse(false);
+    static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
 
     static final int STATE_IDLE = 0;
     static final int STATE_W4_SELECT = 1;
