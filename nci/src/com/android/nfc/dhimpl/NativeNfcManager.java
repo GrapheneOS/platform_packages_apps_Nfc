@@ -21,12 +21,13 @@ import android.nfc.cardemulation.PollingFrame;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.Bundle;
+import android.os.Trace;
 import android.util.Log;
 
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
 import com.android.nfc.NfcVendorNciResponse;
-
+import com.android.nfc.NfcProprietaryCaps;
 import java.io.FileDescriptor;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -55,7 +56,7 @@ public class NativeNfcManager implements DeviceHost {
 
     private final Object mLock = new Object();
     private final HashMap<Integer, byte[]> mT3tIdentifiers = new HashMap<Integer, byte[]>();
-
+    private NfcProprietaryCaps mProprietaryCaps = null;
     private static final int MIN_POLLING_FRAME_TLV_SIZE = 5;
     private static final int TAG_FIELD_CHANGE = 0;
     private static final int TAG_NFC_A = 1;
@@ -91,6 +92,7 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public boolean initialize() {
         boolean ret = doInitialize();
+        mProprietaryCaps = NfcProprietaryCaps.createFromByteArray(getProprietaryCaps());
         mIsoDepMaxTransceiveLength = getIsoDepMaxTransceiveLength();
         return ret;
     }
@@ -164,7 +166,7 @@ public class NativeNfcManager implements DeviceHost {
         }
 
         return mContext.getResources().getBoolean(
-            com.android.nfc.R.bool.nfc_observe_mode_supported);
+                com.android.nfc.R.bool.nfc_observe_mode_supported);
     }
 
     @Override
@@ -419,6 +421,7 @@ public class NativeNfcManager implements DeviceHost {
         if (data_len < MIN_POLLING_FRAME_TLV_SIZE) {
             return;
         }
+        Trace.beginSection("notifyPollingLoopFrame");
         Bundle frame = new Bundle();
         final int header_len = 4;
         int pos = header_len;
@@ -433,12 +436,14 @@ public class NativeNfcManager implements DeviceHost {
             int length = p_data[pos + TLV_len_offset];
             if (TLV_len_offset + length < TLV_gain_offset ) {
                 Log.e(TAG, "Length (" + length + ") is less than a polling frame, dropping.");
+                Trace.endSection();
                 return;
             }
             if (pos + TLV_header_len + length > data_len) {
                 // Frame is bigger than buffer.
                 Log.e(TAG, "Polling frame data ("+ pos + ", " + length
                         + ") is longer than buffer data length (" + data_len + ").");
+                Trace.endSection();
                 return;
             }
             switch (type) {
@@ -493,6 +498,7 @@ public class NativeNfcManager implements DeviceHost {
             pos += (TLV_header_len + length);
         }
         mListener.onPollingLoopDetected(frame);
+        Trace.endSection();
     }
 
     private void notifyWlcStopped(int wpt_end_condition) {
