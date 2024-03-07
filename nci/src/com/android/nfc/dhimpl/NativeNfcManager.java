@@ -27,7 +27,7 @@ import android.util.Log;
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
 import com.android.nfc.NfcVendorNciResponse;
-import com.android.nfc.NfcProprietaryCaps;
+
 import java.io.FileDescriptor;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -56,7 +56,7 @@ public class NativeNfcManager implements DeviceHost {
 
     private final Object mLock = new Object();
     private final HashMap<Integer, byte[]> mT3tIdentifiers = new HashMap<Integer, byte[]>();
-    private NfcProprietaryCaps mProprietaryCaps = null;
+
     private static final int MIN_POLLING_FRAME_TLV_SIZE = 5;
     private static final int TAG_FIELD_CHANGE = 0;
     private static final int TAG_NFC_A = 1;
@@ -92,7 +92,6 @@ public class NativeNfcManager implements DeviceHost {
     @Override
     public boolean initialize() {
         boolean ret = doInitialize();
-        mProprietaryCaps = NfcProprietaryCaps.createFromByteArray(getProprietaryCaps());
         mIsoDepMaxTransceiveLength = getIsoDepMaxTransceiveLength();
         return ret;
     }
@@ -487,8 +486,10 @@ public class NativeNfcManager implements DeviceHost {
                                 pos + TLV_header_len + length));
             }
             if (pos + TLV_gain_offset <= data_len) {
-                byte gain = p_data[pos + TLV_gain_offset];
-                frame.putByte(PollingFrame.KEY_POLLING_LOOP_GAIN, gain);
+                int gain = Byte.toUnsignedInt(p_data[pos + TLV_gain_offset]);
+                if (gain != 0xFF) {
+                    frame.putInt(PollingFrame.KEY_POLLING_LOOP_GAIN, gain);
+                }
             }
             if (pos + TLV_timestamp_offset + 3 < data_len) {
                 int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4)
