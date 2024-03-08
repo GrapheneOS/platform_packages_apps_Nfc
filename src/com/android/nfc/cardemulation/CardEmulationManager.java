@@ -145,8 +145,6 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mOffHostRouteUicc = mRoutingOptionManager.getOffHostRouteUicc();
         mForegroundUid = Process.INVALID_UID;
         int currentUser = ActivityManager.getCurrentUser();
-        mAidCache.onWalletRoleHolderChanged(
-                mWalletRoleObserver.getDefaultWalletRoleHolder(currentUser), currentUser);
     }
 
     public INfcCardEmulation getNfcCardEmulationInterface() {
@@ -159,8 +157,8 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
     @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
-    public void onPollingLoopDetected(Bundle pollingFrame) {
-        mHostEmulationManager.onPollingLoopDetected(pollingFrame);
+    public void onPollingLoopDetected(List<Bundle> pollingFrames) {
+        mHostEmulationManager.onPollingLoopDetected(pollingFrames);
     }
 
     public void onHostCardEmulationActivated(int technology) {
@@ -309,8 +307,10 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     @Override
     public void onServicesUpdated(int userId, List<ApduServiceInfo> services,
             boolean validateInstalled) {
-        // Verify defaults are still the same
-        verifyDefaults(userId, services, validateInstalled);
+        if (!mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+            // Verify defaults are still the same
+            verifyDefaults(userId, services, validateInstalled);
+        }
         // Update the AID cache
         mAidCache.onServicesUpdated(userId, services);
         // Update the preferred services list

@@ -22,6 +22,7 @@ import android.os.Bundle;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.util.List;
 
 public interface DeviceHost {
     public interface DeviceHostListener {
@@ -43,7 +44,7 @@ public interface DeviceHost {
 
         public void onHwErrorReported();
 
-        public void onPollingLoopDetected(Bundle pollingFrame);
+        public void onPollingLoopDetected(List<Bundle> pollingFrames);
 
         public void onWlcStopped(int wpt_end_condition);
 

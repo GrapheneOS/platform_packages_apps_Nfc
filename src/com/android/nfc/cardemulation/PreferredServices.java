@@ -134,8 +134,15 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
                 paymentForegroundUri,
                 true, mSettingsObserver, UserHandle.ALL);
 
+        int currentUserId = ActivityManager.getCurrentUser();
+
         // Load current settings defaults for payments
-        loadDefaultsFromSettings(ActivityManager.getCurrentUser(), false);
+        loadDefaultsFromSettings(currentUserId, false);
+
+        if (mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+            String holder = mWalletRoleObserver.getDefaultWalletRoleHolder(currentUserId);
+            onWalletRoleHolderChanged(holder, currentUserId);
+        }
     }
 
     private final class SettingsObserver extends ContentObserver {
@@ -253,7 +260,7 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
             }
         }
         // Notify if anything changed
-        if (paymentDefaultChanged || force) {
+        if (!mWalletRoleObserver.isWalletRoleFeatureEnabled() && (paymentDefaultChanged || force)) {
             mCallback.onPreferredPaymentServiceChanged(newUser.getIdentifier(), newDefault);
         }
         if (paymentPreferForegroundChanged || force) {
