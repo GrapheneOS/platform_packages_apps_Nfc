@@ -2298,6 +2298,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             if (DBG) Log.i(TAG, "Register the callback");
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcVendorNciCallBack = callbacks;
+            mDeviceHost.enableVendorNciNotifications(true);
         }
 
         @Override
@@ -2306,6 +2307,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             if (DBG) Log.i(TAG, "Unregister the callback");
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcVendorNciCallBack = null;
+            mDeviceHost.enableVendorNciNotifications(false);
         }
     }
 

@@ -256,4 +256,6 @@ public interface DeviceHost {
      * Sends Vendor NCI command
      */
     NfcVendorNciResponse sendRawVendorCmd(int mt, int gid, int oid, byte[] payload);
+
+    void enableVendorNciNotifications(boolean enabled);
 }

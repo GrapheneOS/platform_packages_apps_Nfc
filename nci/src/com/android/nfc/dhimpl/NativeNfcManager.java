@@ -533,4 +533,7 @@ public class NativeNfcManager implements DeviceHost {
     public native void setTechnologyABRoute(int route);
 
     private native byte[] getProprietaryCaps();
+
+    @Override
+    public native void enableVendorNciNotifications(boolean enabled);
 }
