@@ -1028,9 +1028,11 @@ void static nfaVSCallback(uint8_t event, uint16_t param_len, uint8_t* p_param) {
         } break;
         case NCI_ANDROID_GET_CAPS: {
           gVSCmdStatus = p_param[4];
+          SyncEventGuard guard(gNfaVsCommand);
           u_int16_t android_version = *(u_int16_t*)&p_param[5];
           u_int8_t len = p_param[7];
           gCaps.assign(p_param + 8, p_param + 8 + len);
+          gNfaVsCommand.notifyOne();
         } break;
         case NCI_ANDROID_POLLING_FRAME_NTF: {
           struct nfc_jni_native_data* nat = getNative(NULL, NULL);
@@ -2633,8 +2635,10 @@ static jboolean nfcManager_doSetPowerSavingMode(JNIEnv* e, jobject o,
 static jbyteArray nfcManager_getProprietaryCaps(JNIEnv* e, jobject o) {
   LOG(DEBUG) << StringPrintf("%s: enter; ", __func__);
   uint8_t cmd[] = {(NCI_MT_CMD << NCI_MT_SHIFT) | NCI_GID_PROP,
-                   NCI_MSG_PROP_ANDROID, 0, NCI_ANDROID_GET_CAPS};
+                   NCI_MSG_PROP_ANDROID, NCI_ANDROID_GET_CAPS_PARAM_SIZE,
+                   NCI_ANDROID_GET_CAPS};
   SyncEventGuard guard(gNfaVsCommand);
+
   tNFA_STATUS status =
       NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaSendRawVsCmdCallback);
   if (status == NFA_STATUS_OK) {

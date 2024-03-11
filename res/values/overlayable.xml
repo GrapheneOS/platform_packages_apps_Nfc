@@ -41,6 +41,7 @@
             <item name="antenna_x" type="array" />
             <item name="antenna_y" type="array" />
             <item name="nfc_observe_mode_supported" type="bool" />
+            <item name="nfc_proprietary_getcaps_supported" type="bool" />
           <!-- Params from config.xml that can be overlaid -->
 
           <!-- Params from strings.xml that can be overlaid -->

@@ -28,4 +28,5 @@
     <integer-array name="antenna_x">0</integer-array>
     <integer-array name="antenna_y">0</integer-array>
     <bool name="nfc_observe_mode_supported">false</bool>
+    <bool name="nfc_proprietary_getcaps_supported">false</bool>
 </resources>
