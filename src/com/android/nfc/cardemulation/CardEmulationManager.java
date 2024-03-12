@@ -145,6 +145,8 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mOffHostRouteUicc = mRoutingOptionManager.getOffHostRouteUicc();
         mForegroundUid = Process.INVALID_UID;
         int currentUser = ActivityManager.getCurrentUser();
+        onWalletRoleHolderChanged(
+                mWalletRoleObserver.getDefaultWalletRoleHolder(currentUser), currentUser);
     }
 
     public INfcCardEmulation getNfcCardEmulationInterface() {

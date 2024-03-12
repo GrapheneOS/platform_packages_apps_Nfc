@@ -22,7 +22,8 @@ import android.content.Context;
 import android.os.Binder;
 import android.os.UserHandle;
 import android.permission.flags.Flags;
-import android.text.TextUtils;
+
+import com.android.internal.annotations.VisibleForTesting;
 
 import java.util.List;
 
@@ -33,7 +34,8 @@ public class WalletRoleObserver {
     }
     private Context mContext;
     private RoleManager mRoleManager;
-    private OnRoleHoldersChangedListener mOnRoleHoldersChangedListener;
+    @VisibleForTesting
+    final OnRoleHoldersChangedListener mOnRoleHoldersChangedListener;
     private Callback mCallback;
 
     public WalletRoleObserver(Context context, RoleManager roleManager,
