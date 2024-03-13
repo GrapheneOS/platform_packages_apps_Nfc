@@ -56,6 +56,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import com.android.nfc.R;
+import android.permission.flags.Flags;
 
 /**
  * CardEmulationManager is the central entity
@@ -144,9 +145,12 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mOffHostRouteEse = mRoutingOptionManager.getOffHostRouteEse();
         mOffHostRouteUicc = mRoutingOptionManager.getOffHostRouteUicc();
         mForegroundUid = Process.INVALID_UID;
-        int currentUser = ActivityManager.getCurrentUser();
-        onWalletRoleHolderChanged(
-                mWalletRoleObserver.getDefaultWalletRoleHolder(currentUser), currentUser);
+
+        if (Flags.walletRoleEnabled()) {
+            int currentUser = ActivityManager.getCurrentUser();
+            onWalletRoleHolderChanged(
+                    mWalletRoleObserver.getDefaultWalletRoleHolder(currentUser), currentUser);
+        }
     }
 
     public INfcCardEmulation getNfcCardEmulationInterface() {

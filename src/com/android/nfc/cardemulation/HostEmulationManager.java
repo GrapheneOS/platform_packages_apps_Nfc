@@ -735,7 +735,6 @@ public class HostEmulationManager {
             Log.i(TAG, "Payment service disconnected: " + name);
             synchronized (mLock) {
                 mPaymentService = null;
-                mPaymentServiceBound = false;
                 mPaymentServiceName = null;
             }
         }
