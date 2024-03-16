@@ -211,9 +211,15 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
         UserHandle newUser = null;
         // search for default payment setting within enabled profiles
         for (UserHandle uh : userHandles) {
-            name = Settings.Secure.getString(
-                    mContext.createContextAsUser(uh, 0).getContentResolver(),
-                    Constants.SETTINGS_SECURE_NFC_PAYMENT_DEFAULT_COMPONENT);
+            try {
+                name = Settings.Secure.getString(
+                        mContext.createContextAsUser(uh, 0).getContentResolver(),
+                        Constants.SETTINGS_SECURE_NFC_PAYMENT_DEFAULT_COMPONENT);
+            } catch (IllegalStateException e) {
+                Log.d(TAG, "Fail to get PackageManager for user: " + uh);
+                continue;
+            }
+
             if (name != null) {
                 newUser = uh;
                 newDefaultName = name;

@@ -63,7 +63,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.TreeMap;
+import java.util.Set;
+import java.util.regex.Pattern;
+
 
 public class HostEmulationManager {
     static final String TAG = "HostEmulationManager";
@@ -115,6 +117,7 @@ public class HostEmulationManager {
     int mServiceUserId; // The UserId of the non-payment service
     ArrayList<Bundle> mPendingPollingLoopFrames = null;
     private Map<Integer, Map<String, List<ApduServiceInfo>>> mPollingLoopFilters;
+    private Map<Integer, Map<Pattern, List<ApduServiceInfo>>> mPollingLoopPatternFilters;
 
     // Variables below are for a payment service,
     // which is typically bound persistently to improve on
@@ -149,6 +152,7 @@ public class HostEmulationManager {
         mPowerManager = context.getSystemService(PowerManager.class);
         mStatsdUtils = Flags.statsdCeEventsFlag() ? new StatsdUtils(StatsdUtils.SE_NAME_HCE) : null;
         mPollingLoopFilters = new HashMap<Integer, Map<String, List<ApduServiceInfo>>>();
+        mPollingLoopPatternFilters = new HashMap<Integer, Map<Pattern, List<ApduServiceInfo>>>();
     }
 
     /**
@@ -186,20 +190,29 @@ public class HostEmulationManager {
     @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public void updatePollingLoopFilters(int userId, List<ApduServiceInfo> services) {
-        TreeMap<String, List<ApduServiceInfo>> pollingLoopFilters =
-                new TreeMap<String, List<ApduServiceInfo>>();
+        HashMap<String, List<ApduServiceInfo>> pollingLoopFilters =
+                new HashMap<String, List<ApduServiceInfo>>();
+        HashMap<Pattern, List<ApduServiceInfo>> pollingLoopPatternFilters =
+                new HashMap<Pattern, List<ApduServiceInfo>>();
         for (ApduServiceInfo serviceInfo : services) {
             for (String plf : serviceInfo.getPollingLoopFilters()) {
-                if (pollingLoopFilters.containsKey(plf)) {
-                    pollingLoopFilters.get(plf).add(serviceInfo);
-                } else {
-                    ArrayList<ApduServiceInfo> list =  new ArrayList<ApduServiceInfo>(1);
-                    list.add(serviceInfo);
-                    pollingLoopFilters.put(plf, list);
-                }
+                List<ApduServiceInfo> list =
+                        pollingLoopFilters.getOrDefault(plf, new ArrayList<ApduServiceInfo>());
+                list.add(serviceInfo);
+                pollingLoopFilters.putIfAbsent(plf, list);
+
+            }
+            for (Pattern plpf : serviceInfo.getPollingLoopPatternFilters()) {
+                List<ApduServiceInfo> list =
+                        pollingLoopPatternFilters.getOrDefault(plpf,
+                        new ArrayList<ApduServiceInfo>());
+                list.add(serviceInfo);
+                pollingLoopPatternFilters.putIfAbsent(plpf, list);
+
             }
         }
         mPollingLoopFilters.put(Integer.valueOf(userId), pollingLoopFilters);
+        mPollingLoopPatternFilters.put(Integer.valueOf(userId), pollingLoopPatternFilters);
     }
 
     @TargetApi(35)
@@ -223,6 +236,19 @@ public class HostEmulationManager {
                     String dataStr = HexFormat.of().formatHex(data).toUpperCase(Locale.ROOT);
                     List<ApduServiceInfo> serviceInfos =
                             mPollingLoopFilters.get(ActivityManager.getCurrentUser()).get(dataStr);
+                    Map<Pattern, List<ApduServiceInfo>> patternMappingForUser =
+                            mPollingLoopPatternFilters.get(ActivityManager.getCurrentUser());
+                    Set<Pattern> patternSet = patternMappingForUser.keySet();
+                    List<Pattern> matchedPatternes = patternSet.stream()
+                            .filter(p -> p.matcher(dataStr).matches()).toList();
+                    if (!matchedPatternes.isEmpty()) {
+                        if (service == null) {
+                            serviceInfos = new ArrayList<ApduServiceInfo>();
+                        }
+                        for (Pattern matchedPattern : matchedPatternes) {
+                            serviceInfos.addAll(patternMappingForUser.get(matchedPattern));
+                        }
+                    }
                     if (serviceInfos != null && serviceInfos.size() > 0) {
                         ApduServiceInfo serviceInfo;
                         if (serviceInfos.size() == 1) {

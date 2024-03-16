@@ -32,6 +32,8 @@ import android.util.proto.ProtoOutputStream;
 
 import com.android.nfc.NfcService;
 
+import com.android.internal.annotations.VisibleForTesting;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -163,9 +165,15 @@ public class RegisteredAidCache {
     boolean mRequiresScreenOnServiceExist = false;
 
     public RegisteredAidCache(Context context, WalletRoleObserver walletRoleObserver) {
+        this(context, walletRoleObserver, new AidRoutingManager());
+    }
+
+    @VisibleForTesting
+    RegisteredAidCache(Context context, WalletRoleObserver walletRoleObserver,
+            AidRoutingManager routingManager) {
         mContext = context;
         mWalletRoleObserver = walletRoleObserver;
-        mRoutingManager = new AidRoutingManager();
+        mRoutingManager = routingManager;
         mPreferredPaymentService = null;
         mUserIdPreferredPaymentService = -1;
         mPreferredForegroundService = null;

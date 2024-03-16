@@ -915,7 +915,6 @@ public class RegisteredServicesCache {
         return true;
     }
 
-    @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public boolean registerPollingLoopFilterForService(int userId, int uid,
             ComponentName componentName, String pollingLoopFilter,
@@ -938,6 +937,88 @@ public class RegisteredServicesCache {
                 return false;
             }
             serviceInfo.addPollingLoopFilter(pollingLoopFilter, autoTransact);
+            newServices = new ArrayList<ApduServiceInfo>(services.services.values());
+        }
+        mCallback.onServicesUpdated(userId, newServices, true);
+        return true;
+    }
+
+    @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
+    public boolean removePollingLoopFilterForService(int userId, int uid,
+            ComponentName componentName, String pollingLoopFilter) {
+        ArrayList<ApduServiceInfo> newServices = null;
+        synchronized (mLock) {
+            UserServices services = findOrCreateUserLocked(userId);
+            // Check if we can find this service
+            ApduServiceInfo serviceInfo = getService(userId, componentName);
+            if (serviceInfo == null) {
+                Log.e(TAG, "Service " + componentName + " does not exist.");
+                return false;
+            }
+            if (serviceInfo.getUid() != uid) {
+                // This is probably a good indication something is wrong here.
+                // Either newer service installed with different uid (but then
+                // we should have known about it), or somebody calling us from
+                // a different uid.
+                Log.e(TAG, "UID mismatch.");
+                return false;
+            }
+            serviceInfo.removePollingLoopFilter(pollingLoopFilter);
+            newServices = new ArrayList<ApduServiceInfo>(services.services.values());
+        }
+        mCallback.onServicesUpdated(userId, newServices, true);
+        return true;
+    }
+
+    @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
+    public boolean registerPollingLoopPatternFilterForService(int userId, int uid,
+            ComponentName componentName, String pollingLoopPatternFilter,
+            boolean autoTransact) {
+        ArrayList<ApduServiceInfo> newServices = null;
+        synchronized (mLock) {
+            UserServices services = findOrCreateUserLocked(userId);
+            // Check if we can find this service
+            ApduServiceInfo serviceInfo = getService(userId, componentName);
+            if (serviceInfo == null) {
+                Log.e(TAG, "Service " + componentName + " does not exist.");
+                return false;
+            }
+            if (serviceInfo.getUid() != uid) {
+                // This is probably a good indication something is wrong here.
+                // Either newer service installed with different uid (but then
+                // we should have known about it), or somebody calling us from
+                // a different uid.
+                Log.e(TAG, "UID mismatch.");
+                return false;
+            }
+            serviceInfo.addPollingLoopPatternFilter(pollingLoopPatternFilter, autoTransact);
+            newServices = new ArrayList<ApduServiceInfo>(services.services.values());
+        }
+        mCallback.onServicesUpdated(userId, newServices, true);
+        return true;
+    }
+
+    @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
+    public boolean removePollingLoopPatternFilterForService(int userId, int uid,
+            ComponentName componentName, String pollingLoopPatternFilter) {
+        ArrayList<ApduServiceInfo> newServices = null;
+        synchronized (mLock) {
+            UserServices services = findOrCreateUserLocked(userId);
+            // Check if we can find this service
+            ApduServiceInfo serviceInfo = getService(userId, componentName);
+            if (serviceInfo == null) {
+                Log.e(TAG, "Service " + componentName + " does not exist.");
+                return false;
+            }
+            if (serviceInfo.getUid() != uid) {
+                // This is probably a good indication something is wrong here.
+                // Either newer service installed with different uid (but then
+                // we should have known about it), or somebody calling us from
+                // a different uid.
+                Log.e(TAG, "UID mismatch.");
+                return false;
+            }
+            serviceInfo.removePollingLoopPatternFilter(pollingLoopPatternFilter);
             newServices = new ArrayList<ApduServiceInfo>(services.services.values());
         }
         mCallback.onServicesUpdated(userId, newServices, true);
