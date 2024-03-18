@@ -37,6 +37,8 @@ import org.junit.runner.RunWith;
 import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 
+import java.util.List;
+
 @RunWith(AndroidJUnit4.class)
 public class ForegroundUtilsTest {
     private static final String TAG = ForegroundUtilsTest.class.getSimpleName();
@@ -94,5 +96,21 @@ public class ForegroundUtilsTest {
         Assert.assertTrue(isInForegroundTrue);
         isInForegroundTrue = mForegroundUtils.isInForeground(10);
         Assert.assertFalse(isInForegroundTrue);
+    }
+
+    @Test
+    public void testOnUidImportance() {
+        if (!mNfcSupported) return;
+
+        mForegroundUtils.onUidImportance(0,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
+        List<Integer> uids = mForegroundUtils.getForegroundUids();
+        Assert.assertNotNull(uids);
+        Assert.assertTrue(uids.size() > 0);
+        mForegroundUtils.onUidImportance(0,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_GONE);
+        uids = mForegroundUtils.getForegroundUids();
+        Assert.assertNotNull(uids);
+        Assert.assertTrue(uids.isEmpty());
     }
 }
