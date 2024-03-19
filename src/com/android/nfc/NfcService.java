@@ -749,8 +749,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             mCardEmulationManager = new CardEmulationManager(mContext);
         }
         mForegroundUtils = ForegroundUtils.getInstance(mActivityManager);
-
-        mIsSecureNfcCapable = mNfcAdapter.deviceSupportsNfcSecure();
+        mIsSecureNfcCapable = checkIsSecureNfcCapable(mContext);
         mIsSecureNfcEnabled =
             mPrefs.getBoolean(PREF_SECURE_NFC_ON, SECURE_NFC_ON_DEFAULT) &&
             mIsSecureNfcCapable;
@@ -1050,6 +1049,19 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         uh.getIdentifier(), packageListNfcPreferredPaymentChanged);
             }
         }
+    }
+
+    private boolean checkIsSecureNfcCapable(Context mContext) {
+        if (mContext.getResources().getBoolean(R.bool.enable_secure_nfc_support)) {
+            return true;
+        }
+        String[] skuList = mContext.getResources().getStringArray(
+                R.array.config_skuSupportsSecureNfc);
+        String sku = SystemProperties.get("ro.boot.hardware.sku");
+        if (TextUtils.isEmpty(sku) || !Utils.arrayContains(skuList, sku)) {
+            return false;
+        }
+        return true;
     }
 
     /**
@@ -1953,13 +1965,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean deviceSupportsNfcSecure() {
-            String skuList[] = mContext.getResources().getStringArray(
-                R.array.config_skuSupportsSecureNfc);
-            String sku = SystemProperties.get("ro.boot.hardware.sku");
-            if (TextUtils.isEmpty(sku) || !Utils.arrayContains(skuList, sku)) {
-                return false;
-            }
-            return true;
+            return mIsSecureNfcCapable;
         }
 
         @Override

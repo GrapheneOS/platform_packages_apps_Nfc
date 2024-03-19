@@ -34,6 +34,7 @@
             <item name="unknown_tag_polling_delay_count_max" type="integer" />
             <item name="unknown_tag_polling_delay_long" type="integer" />
             <item name="config_skuSupportsSecureNfc" type="array" />
+            <item name="enable_secure_nfc_support" type="bool" />
             <item name="antenna_blocked_alert_link" type="string" />
             <item name="device_width" type="integer" />
             <item name="device_height" type="integer" />
