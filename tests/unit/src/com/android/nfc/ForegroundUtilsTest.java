@@ -23,6 +23,7 @@ import android.app.ActivityManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.util.Log;
+import android.util.SparseArray;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -112,5 +113,27 @@ public class ForegroundUtilsTest {
         uids = mForegroundUtils.getForegroundUids();
         Assert.assertNotNull(uids);
         Assert.assertTrue(uids.isEmpty());
+    }
+
+    @Test
+    public void testOnUidImportanceBackground() {
+        if (!mNfcSupported) return;
+
+        mForegroundUtils.onUidImportance(0,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND);
+        List<Integer> uids = mForegroundUtils.getForegroundUids();
+        Assert.assertNotNull(uids);
+        Assert.assertTrue(uids.size() > 0);
+
+        SparseArray<List<ForegroundUtils.Callback>>
+                backGroundCallbacks = mForegroundUtils.getBackgroundCallbacks();
+        List<ForegroundUtils.Callback> callbacks = backGroundCallbacks.get(0);
+        Assert.assertNotNull(callbacks);
+        Assert.assertFalse(callbacks.isEmpty());
+        mForegroundUtils.onUidImportance(0,
+                ActivityManager.RunningAppProcessInfo.IMPORTANCE_BACKGROUND);
+        backGroundCallbacks = mForegroundUtils.getBackgroundCallbacks();
+        callbacks = backGroundCallbacks.get(0);
+        Assert.assertNull(callbacks);
     }
 }

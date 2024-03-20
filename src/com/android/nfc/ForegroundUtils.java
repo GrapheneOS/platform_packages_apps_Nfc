@@ -23,6 +23,7 @@ import android.util.SparseBooleanArray;
 
 import java.util.ArrayList;
 import java.util.List;
+import androidx.annotation.VisibleForTesting;
 
 public class ForegroundUtils implements ActivityManager.OnUidImportanceListener {
     static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
@@ -183,5 +184,9 @@ public class ForegroundUtils implements ActivityManager.OnUidImportanceListener 
                 }
             }
         }
+    }
+    @VisibleForTesting
+    public SparseArray<List<Callback>> getBackgroundCallbacks() {
+        return mBackgroundCallbacks;
     }
 }

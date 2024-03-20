@@ -388,6 +388,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     boolean mIsWlcEnabled;
     boolean mIsRWCapable;
     WlcListenerDeviceInfo mWlcListenerDeviceInfo;
+    public NfcDiagnostics  mNfcDiagnostics;
 
     // polling delay control variables
     private final int mPollDelayTime;
@@ -686,6 +687,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         PackageManager pm = mContext.getPackageManager();
         mIsWatchType = pm.hasSystemFeature(PackageManager.FEATURE_WATCH);
+
+        mNfcDiagnostics = new NfcDiagnostics(mContext);
 
         if (pm.hasSystemFeature(PackageManager.FEATURE_VR_MODE_HIGH_PERFORMANCE) &&
                 !mIsWatchType) {
@@ -4128,7 +4131,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
       }
     }
 
-    private void storeNativeCrashLogs() {
+    public void storeNativeCrashLogs() {
         FileOutputStream fos = null;
         try {
             File file = new File(NATIVE_LOG_FILE_PATH, NATIVE_LOG_FILE_NAME);

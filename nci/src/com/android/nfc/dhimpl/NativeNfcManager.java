@@ -26,6 +26,7 @@ import android.util.Log;
 
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
+import com.android.nfc.NfcService;
 import com.android.nfc.NfcVendorNciResponse;
 import com.android.nfc.NfcProprietaryCaps;
 import java.io.FileDescriptor;
@@ -498,7 +499,8 @@ public class NativeNfcManager implements DeviceHost {
             if (pos + TLV_timestamp_offset + 3 < data_len) {
                 int timestamp = ByteBuffer.wrap(p_data, pos + TLV_timestamp_offset, 4)
                         .order(ByteOrder.LITTLE_ENDIAN).getInt();
-                frame.putInt(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP, timestamp);
+                frame.putLong(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP,
+                        Integer.toUnsignedLong(timestamp));
             }
             pos += (TLV_header_len + length);
             frames.add(frame);
@@ -540,4 +542,8 @@ public class NativeNfcManager implements DeviceHost {
 
     @Override
     public native void enableVendorNciNotifications(boolean enabled);
+
+    private void notifyCommandTimeout() {
+        NfcService.getInstance().storeNativeCrashLogs();
+    }
 }

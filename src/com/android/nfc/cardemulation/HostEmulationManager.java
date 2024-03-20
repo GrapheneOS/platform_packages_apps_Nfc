@@ -364,6 +364,7 @@ public class HostEmulationManager {
                 if (resolveInfo == null || resolveInfo.services.size() == 0) {
                     // Tell the remote we don't handle this AID
                     NfcService.getInstance().sendData(AID_NOT_FOUND);
+                    NfcService.getInstance().mNfcDiagnostics.takeBugReport("NFC tap failed.");
                     return;
                 }
                 mLastSelectedAid = selectAid;
