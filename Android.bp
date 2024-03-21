@@ -24,7 +24,7 @@ java_library {
         "//apex_available:platform",
         "com.android.nfcservices",
     ],
-    min_sdk_version: "VanillaIceCream",
+    min_sdk_version: "current",
     sdk_version: "module_current",
 }
 
@@ -80,7 +80,7 @@ android_app {
 android_app {
     name: "NfcNciApex",
     defaults: ["NfcNciDefaults"],
-    min_sdk_version: "34", // should be 35 (making it 34 for compiling for `-next`)
+    min_sdk_version: "current",
     sdk_version: "module_current",
     certificate: "nfc",
     srcs: [

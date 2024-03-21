@@ -107,6 +107,7 @@ import com.android.nfc.DeviceHost.DeviceHostListener;
 import com.android.nfc.DeviceHost.NfcDepEndpoint;
 import com.android.nfc.DeviceHost.TagEndpoint;
 import com.android.nfc.cardemulation.CardEmulationManager;
+import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.dhimpl.NativeNfcManager;
 import com.android.nfc.flags.FeatureFlags;
 import com.android.nfc.Utils;
@@ -435,6 +436,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private final FeatureFlags mFeatureFlags = new com.android.nfc.flags.FeatureFlagsImpl();
     private final Set<INfcWlcStateListener> mWlcStateListener =
             Collections.synchronizedSet(new HashSet<>());
+    private final StatsdUtils mStatsdUtils;
 
     private  INfcVendorNciCallback mNfcVendorNciCallBack = null;
 
@@ -700,6 +702,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mScreenState = mScreenStateHelper.checkScreenState();
 
         mBackupManager = new BackupManager(mContext);
+
+        mStatsdUtils = mFeatureFlags.statsdCeEventsFlag() ? new StatsdUtils() : null;
 
         // Intents for all users
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
@@ -3594,17 +3598,42 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         private void sendOffHostTransactionEvent(byte[] aid, byte[] data, byte[] readerByteArray) {
-            if (!isSEServiceAvailable() || mNfcEventInstalledPackages.isEmpty()) {
-                return;
-            }
-
+            String reader = "";
+            int uid = -1;
+            int offhostCategory = NfcStatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST;
             try {
-                String reader = new String(readerByteArray, "UTF-8");
-                int uid = -1;
                 StringBuilder aidString = new StringBuilder(aid.length);
                 for (byte b : aid) {
                     aidString.append(String.format("%02X", b));
                 }
+
+                String aidCategory = mCardEmulationManager
+                        .getRegisteredAidCategory(aidString.toString());
+                if (DBG) Log.d(TAG, "aid cateogry: " + aidCategory);
+                if (mStatsdUtils != null) {
+                    mStatsdUtils.setCardEmulationEventCategory(aidCategory);
+                } else {
+                    switch (aidCategory) {
+                        case CardEmulation.CATEGORY_PAYMENT:
+                            offhostCategory = NfcStatsLog
+                                  .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST_PAYMENT;
+                            break;
+                        case CardEmulation.CATEGORY_OTHER:
+                            offhostCategory = NfcStatsLog
+                                    .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST_OTHER;
+                            break;
+                        default:
+                            offhostCategory = NfcStatsLog
+                                .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST;
+                    };
+                }
+
+                reader = new String(readerByteArray, "UTF-8");
+
+                if (!isSEServiceAvailable() || mNfcEventInstalledPackages.isEmpty()) {
+                    return;
+                }
+
                 for (int userId : mNfcEventInstalledPackages.keySet()) {
                     List<String> packagesOfUser = mNfcEventInstalledPackages.get(userId);
                     String[] installedPackages = new String[packagesOfUser.size()];
@@ -3648,14 +3677,19 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                                 "queryBroadcastReceiversAsUser: " + Arrays.toString(packageNames));
                     }
 
+                    boolean foundFirstPackage = false;
                     for (int i = 0; i < nfcAccess.length; i++) {
                         if (nfcAccess[i]) {
+                            String packageName = packagesOfUser.get(i);
                             if (DBG) {
-                                Log.d(TAG,
-                                        "sendOffHostTransactionEvent to " + packagesOfUser.get(i));
+                                Log.d(TAG, "sendOffHostTransactionEvent to " + packageName);
                             }
-                            if (uid == -1 && hasIntentPackages.containsKey(packagesOfUser.get(i))) {
-                                uid = hasIntentPackages.get(packagesOfUser.get(i));
+                            if (!foundFirstPackage && hasIntentPackages.containsKey(packageName)) {
+                                uid = hasIntentPackages.get(packageName);
+                                if (mStatsdUtils != null) {
+                                    mStatsdUtils.setCardEmulationEventUid(uid);
+                                }
+                                foundFirstPackage = true;
                             }
                             intent.setPackage(packagesOfUser.get(i));
                             mContext.sendBroadcastAsUser(intent, UserHandle.of(userId), null,
@@ -3663,35 +3697,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         }
                     }
                 }
-                String aidCategory = mCardEmulationManager
-                        .getRegisteredAidCategory(aidString.toString());
-                if (DBG) Log.d(TAG, "aid cateogry: " + aidCategory);
-
-                int offhostCategory;
-                switch (aidCategory) {
-                    case CardEmulation.CATEGORY_PAYMENT:
-                        offhostCategory = NfcStatsLog
-                              .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST_PAYMENT;
-                        break;
-                    case CardEmulation.CATEGORY_OTHER:
-                        offhostCategory = NfcStatsLog
-                                .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST_OTHER;
-                        break;
-                    default:
-                        offhostCategory = NfcStatsLog
-                            .NFC_CARDEMULATION_OCCURRED__CATEGORY__OFFHOST;
-                };
-
-                NfcStatsLog.write(NfcStatsLog.NFC_CARDEMULATION_OCCURRED,
-                        offhostCategory,
-                        reader,
-                        uid);
             } catch (RemoteException e) {
                 Log.e(TAG, "Error in isNfcEventAllowed() " + e);
             } catch (UnsupportedEncodingException e) {
                 Log.e(TAG, "Incorrect format for Secure Element name" + e);
             } catch (IllegalArgumentException e) {
                 Log.e(TAG, "Error " + e);
+            } finally {
+                if (mStatsdUtils != null) {
+                    mStatsdUtils.logCardEmulationOffhostEvent(reader);
+                } else {
+                    NfcStatsLog.write(NfcStatsLog.NFC_CARDEMULATION_OCCURRED,
+                            offhostCategory,
+                            reader,
+                            uid);
+                }
             }
         }
 

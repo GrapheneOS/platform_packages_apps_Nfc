@@ -68,6 +68,7 @@
     <uses-permission android:name="android.permission.SHOW_CUSTOMIZED_RESOLVER" />
     <uses-permission android:name="android.permission.MANAGE_ROLE_HOLDERS" />
     <uses-permission android:name="android.permission.OBSERVE_ROLE_HOLDERS"/>
+    <uses-permission android:name="android.permission.DUMP"/>
 
     <application android:name=".NfcApplication"
                  android:icon="@drawable/icon"
