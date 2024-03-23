@@ -139,6 +139,10 @@ public class RegisteredAidCache {
                     ", mustRoute=" + mustRoute +
                     '}';
         }
+
+        String getCategory() {
+            return category;
+        }
     }
 
     final AidResolveInfo EMPTY_RESOLVE_INFO = new AidResolveInfo();

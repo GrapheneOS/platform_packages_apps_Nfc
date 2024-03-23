@@ -189,4 +189,9 @@ public class ForegroundUtils implements ActivityManager.OnUidImportanceListener 
     public SparseArray<List<Callback>> getBackgroundCallbacks() {
         return mBackgroundCallbacks;
     }
+
+    @VisibleForTesting
+    public void clearForegroundlist() {
+        mForegroundUids.clear();
+    }
 }

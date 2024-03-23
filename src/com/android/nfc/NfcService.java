@@ -1516,9 +1516,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean enable() throws RemoteException {
+        public boolean enable(String pkg) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
+            Log.i(TAG, "Enabling Nfc service. Package:" + pkg);
             saveNfcOnSetting(true);
 
             if (shouldEnableNfc()) {
@@ -1529,9 +1530,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean disable(boolean saveState) throws RemoteException {
+        public boolean disable(boolean saveState, String pkg) throws RemoteException {
             NfcPermissions.enforceAdminPermissions(mContext);
 
+            Log.i(TAG, "Disabling Nfc service. Package:" + pkg);
             if (saveState) {
                 saveNfcOnSetting(false);
             }

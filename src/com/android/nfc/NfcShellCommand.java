@@ -90,10 +90,10 @@ public class NfcShellCommand extends BasicShellCommandHandler {
                     if (TextUtils.equals(stringSaveState, "[persist]")) {
                         saveState = true;
                     }
-                    mNfcService.mNfcAdapter.disable(saveState);
+                    mNfcService.mNfcAdapter.disable(saveState, mContext.getPackageName());
                     return 0;
                 case "enable-nfc":
-                    mNfcService.mNfcAdapter.enable();
+                    mNfcService.mNfcAdapter.enable(mContext.getPackageName());
                     return 0;
                 case "set-reader-mode":
                     boolean enable_polling =

@@ -144,8 +144,8 @@ public class NfcDiagnostics {
                 "com.google.android.apps.betterbug.intent.FILE_BUG_DEEPLINK";
         private static final boolean DEFAULT_AUTO_UPLOAD_ENABLED = false;
         private static final boolean DEFAULT_BUGREPORT_REQUIRED = true;
-        private static final String DEFAULT_BUG_ASSIGNEE = "android-Nfc-team@google.com";
-        private static final long DEFAULT_COMPONENT_ID = 1042770L;
+        private static final String DEFAULT_BUG_ASSIGNEE = "android-nfc-team@google.com";
+        private static final long DEFAULT_COMPONENT_ID = 48448L;
 
         private static final String EXTRA_DEEPLINK = "EXTRA_DEEPLINK";
         private static final String EXTRA_ISSUE_TITLE = "EXTRA_ISSUE_TITLE";
