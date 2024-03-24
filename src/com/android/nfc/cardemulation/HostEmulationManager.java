@@ -87,6 +87,8 @@ public class HostEmulationManager {
     static final byte INSTR_SELECT = (byte)0xA4;
 
     static final String ANDROID_HCE_AID = "A000000476416E64726F6964484345";
+    static final String NDEF_V1_AID = "D2760000850100";
+    static final String NDEF_V2_AID = "D2760000850101";
     static final byte[] ANDROID_HCE_RESPONSE = {0x14, (byte)0x81, 0x00, 0x00, (byte)0x90, 0x00};
 
     static final byte[] AID_NOT_FOUND = {0x6A, (byte)0x82};
@@ -362,9 +364,14 @@ public class HostEmulationManager {
                 }
                 resolveInfo = mAidCache.resolveAid(selectAid);
                 if (resolveInfo == null || resolveInfo.services.size() == 0) {
+                    if (selectAid.equals(NDEF_V1_AID) || selectAid.equals(NDEF_V2_AID)) {
+                        Log.w(TAG, "Can't route NDEF AID, sending AID_NOT_FOUND");
+                    } else {
+                        Log.w(TAG, "Can't handle AID " + selectAid + " sending AID_NOT_FOUND");
+                        NfcService.getInstance().mNfcDiagnostics.takeBugReport("NFC tap failed.");
+                    }
                     // Tell the remote we don't handle this AID
                     NfcService.getInstance().sendData(AID_NOT_FOUND);
-                    NfcService.getInstance().mNfcDiagnostics.takeBugReport("NFC tap failed.");
                     return;
                 }
                 mLastSelectedAid = selectAid;
