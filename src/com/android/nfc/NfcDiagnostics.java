@@ -63,7 +63,7 @@ public class NfcDiagnostics {
      * Take a bug report if it is in user debug build and there is no recent bug
      * report
      */
-    public void takeBugReport(String bugTitle) {
+    public void takeBugReport(String bugTitle, String description) {
         if (!mSystemBuildProperties.isUserdebugBuild()) {
             Log.d(TAG, "Skip bugreport because it can be triggered only in userDebug build");
             return;
@@ -77,15 +77,16 @@ public class NfcDiagnostics {
             return;
         }
 
-        if (!takeBugreportThroughBetterBug(bugTitle)) {
-            takeBugreportThroughBugreportManager(bugTitle);
+        if (!takeBugreportThroughBetterBug(bugTitle, description)) {
+            takeBugreportThroughBugreportManager(bugTitle, description);
         }
     }
 
-    private boolean takeBugreportThroughBetterBug(String bugTitle) {
+    private boolean takeBugreportThroughBetterBug(String bugTitle, String description) {
         Intent launchBetterBugIntent = new BetterBugIntentBuilder()
                 .setIssueTitle(bugTitle)
                 .setHappenedTimestamp(System.currentTimeMillis())
+                .setAdditionalComment(description)
                 .build();
         boolean isIntentUnSafe = mContext
                 .getPackageManager().queryIntentActivities(launchBetterBugIntent, 0)
@@ -114,11 +115,11 @@ public class NfcDiagnostics {
         return SystemClock.elapsedRealtime();
     }
 
-    private boolean takeBugreportThroughBugreportManager(String bugTitle) {
+    private boolean takeBugreportThroughBugreportManager(String bugTitle, String description) {
         BugreportManager bugreportManager = mContext.getSystemService(BugreportManager.class);
         BugreportParams params = new BugreportParams(BugreportParams.BUGREPORT_MODE_FULL);
         try {
-            bugreportManager.requestBugreport(params, bugTitle, bugTitle);
+            bugreportManager.requestBugreport(params, bugTitle, description);
             Log.d(TAG, "Taking the bugreport through bugreportManager: " + bugTitle);
             mLastBugReportTimeMs = getElapsedSinceBootMillis();
             return true;
@@ -150,6 +151,7 @@ public class NfcDiagnostics {
         private static final String EXTRA_DEEPLINK = "EXTRA_DEEPLINK";
         private static final String EXTRA_ISSUE_TITLE = "EXTRA_ISSUE_TITLE";
         private static final String EXTRA_DEEPLINK_SILENT = "EXTRA_DEEPLINK_SILENT";
+        private static final String EXTRA_ADDITIONAL_COMMENT = "EXTRA_ADDITIONAL_COMMENT";
         private static final String EXTRA_REQUIRE_BUGREPORT = "EXTRA_REQUIRE_BUGREPORT";
         private static final String EXTRA_HAPPENED_TIME = "EXTRA_HAPPENED_TIME";
         private static final String EXTRA_BUG_ASSIGNEE = "EXTRA_BUG_ASSIGNEE";
@@ -188,6 +190,11 @@ public class NfcDiagnostics {
 
         public BetterBugIntentBuilder setHappenedTimestamp(long happenedTimeSinceEpochMs) {
             mBetterBugIntent.putExtra(EXTRA_HAPPENED_TIME, happenedTimeSinceEpochMs);
+            return this;
+        }
+
+       public BetterBugIntentBuilder setAdditionalComment(String additionalComment) {
+            mBetterBugIntent.putExtra(EXTRA_ADDITIONAL_COMMENT, additionalComment);
             return this;
         }
 
