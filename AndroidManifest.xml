@@ -137,6 +137,10 @@
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:noHistory="true"
         />
+        <activity android:name=".NfcEnableAllowlistActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:noHistory="true"
+        />
 
         <receiver android:name=".NfcBootCompletedReceiver"
             android:exported="true">

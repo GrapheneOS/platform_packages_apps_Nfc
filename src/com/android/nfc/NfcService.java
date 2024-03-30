@@ -24,7 +24,6 @@ import android.app.KeyguardManager;
 import android.app.KeyguardManager.KeyguardLockedStateListener;
 import android.app.PendingIntent;
 import android.app.VrManager;
-import android.app.admin.DevicePolicyManager;
 import android.app.backup.BackupManager;
 import android.app.role.RoleManager;
 import android.content.BroadcastReceiver;
@@ -44,9 +43,6 @@ import android.media.SoundPool;
 import android.net.Uri;
 import android.nfc.AvailableNfcAntenna;
 import android.nfc.Constants;
-import android.nfc.NfcFrameworkInitializer;
-import android.nfc.NfcServiceManager;
-import android.nfc.cardemulation.CardEmulation;
 import android.nfc.ErrorCodes;
 import android.nfc.FormatException;
 import android.nfc.IAppCallback;
@@ -54,20 +50,23 @@ import android.nfc.INfcAdapter;
 import android.nfc.INfcAdapterExtras;
 import android.nfc.INfcCardEmulation;
 import android.nfc.INfcControllerAlwaysOnListener;
-import android.nfc.INfcVendorNciCallback;
 import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
+import android.nfc.INfcVendorNciCallback;
 import android.nfc.INfcWlcStateListener;
 import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAntennaInfo;
+import android.nfc.NfcFrameworkInitializer;
+import android.nfc.NfcServiceManager;
 import android.nfc.Tag;
 import android.nfc.TechListParcel;
 import android.nfc.TransceiveResult;
 import android.nfc.WlcListenerDeviceInfo;
+import android.nfc.cardemulation.CardEmulation;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.AsyncTask;
@@ -82,7 +81,6 @@ import android.os.PowerManager;
 import android.os.PowerManager.OnThermalStatusChangedListener;
 import android.os.Process;
 import android.os.RemoteException;
-import android.os.ServiceManager;
 import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
@@ -90,7 +88,6 @@ import android.os.UserManager;
 import android.os.VibrationAttributes;
 import android.os.VibrationEffect;
 import android.os.Vibrator;
-import android.permission.flags.Flags;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.se.omapi.ISecureElementService;
@@ -110,7 +107,6 @@ import com.android.nfc.cardemulation.CardEmulationManager;
 import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.dhimpl.NativeNfcManager;
 import com.android.nfc.flags.FeatureFlags;
-import com.android.nfc.Utils;
 import com.android.nfc.handover.HandoverDataParser;
 import com.android.nfc.wlc.NfcCharging;
 
@@ -137,16 +133,13 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.FutureTask;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 public class NfcService implements DeviceHostListener, ForegroundUtils.Callback {
     static final boolean DBG = NfcProperties.debug_enabled().orElse(true);
@@ -254,6 +247,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             "com.android.nfc_extras.action.RF_FIELD_ON_DETECTED";
     public static final String ACTION_RF_FIELD_OFF_DETECTED =
             "com.android.nfc_extras.action.RF_FIELD_OFF_DETECTED";
+
+    public static final String APP_NAME_ENABLING_NFC =
+            "com.android.nfc.PACKAGE_NAME_ENABLING_NFC";
 
     public static boolean sIsShortRecordLayout = false;
 
@@ -1505,6 +1501,26 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
     }
 
+    public void enableNfc() {
+        saveNfcOnSetting(true);
+
+        if (shouldEnableNfc()) {
+            new EnableDisableTask().execute(TASK_ENABLE);
+        }
+    }
+
+    private @NonNull CharSequence getAppName(@NonNull String packageName, int uid) {
+        ApplicationInfo applicationInfo = null;
+        try {
+            applicationInfo = mContext.getPackageManager().getApplicationInfoAsUser(
+                    packageName, 0, UserHandle.getUserHandleForUid(uid));
+        } catch (PackageManager.NameNotFoundException e) {
+            Log.e(TAG, "Failed to find app name for " + packageName);
+            return "";
+        }
+        return mContext.getPackageManager().getApplicationLabel(applicationInfo);
+    }
+
     public boolean isSecureNfcEnabled() {
         return mIsSecureNfcEnabled;
     }
@@ -1520,12 +1536,17 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
 
             Log.i(TAG, "Enabling Nfc service. Package:" + pkg);
-            saveNfcOnSetting(true);
+            List<String> allowlist = new ArrayList<>(
+                    Arrays.asList(mContext.getResources().getStringArray(R.array.nfc_allow_list)));
+            if (!allowlist.isEmpty() && !allowlist.contains(pkg)) {
+                Intent allowUsingNfcIntent = new Intent()
+                        .putExtra(APP_NAME_ENABLING_NFC, getAppName(pkg, mUserId))
+                        .setClass(mContext, NfcEnableAllowlistActivity.class);
 
-            if (shouldEnableNfc()) {
-                new EnableDisableTask().execute(TASK_ENABLE);
+                mContext.startActivityAsUser(allowUsingNfcIntent, UserHandle.CURRENT);
+                return true;
             }
-
+            enableNfc();
             return true;
         }
 
