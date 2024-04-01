@@ -52,6 +52,7 @@ import android.nfc.INfcCardEmulation;
 import android.nfc.INfcControllerAlwaysOnListener;
 import android.nfc.INfcDta;
 import android.nfc.INfcFCardEmulation;
+import android.nfc.INfcOemExtensionCallback;
 import android.nfc.INfcTag;
 import android.nfc.INfcUnlockHandler;
 import android.nfc.INfcVendorNciCallback;
@@ -435,6 +436,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private final StatsdUtils mStatsdUtils;
 
     private  INfcVendorNciCallback mNfcVendorNciCallBack = null;
+    private  INfcOemExtensionCallback mNfcOemExtensionCallback = null;
 
     public static NfcService getInstance() {
         return sService;
@@ -2345,6 +2347,29 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcVendorNciCallBack = null;
             mDeviceHost.enableVendorNciNotifications(false);
+        }
+
+        @Override
+        public void registerOemExtensionCallback(INfcOemExtensionCallback callbacks)
+                throws RemoteException {
+            if (DBG) Log.i(TAG, "Register the oem extension callback");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            mNfcOemExtensionCallback = callbacks;
+        }
+
+        @Override
+        public void unregisterOemExtensionCallback(INfcOemExtensionCallback callbacks)
+                throws RemoteException {
+            if (DBG) Log.i(TAG, "Unregister the oem extension callback");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            mNfcOemExtensionCallback = null;
+        }
+
+        @Override
+        public void clearPreference() throws RemoteException {
+            if (DBG) Log.i(TAG, "clearPreference");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            // TODO: Implement this.
         }
 
         private synchronized void sendVendorNciResponse(int gid, int oid, byte[] payload) {

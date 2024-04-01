@@ -952,6 +952,11 @@ public class HostEmulationManager {
     }
 
     @VisibleForTesting
+    public ServiceConnection getPaymentConnection(){
+        return mPaymentConnection;
+    }
+
+    @VisibleForTesting
     public IBinder getMessenger(){
         if (mActiveService != null) {
             return mActiveService.getBinder();
@@ -967,5 +972,15 @@ public class HostEmulationManager {
     @VisibleForTesting
     public Boolean isServiceBounded(){
         return mServiceBound;
+    }
+
+    @VisibleForTesting
+    public Map<Integer, Map<String, List<ApduServiceInfo>>> getPollingLoopFilters() {
+        return mPollingLoopFilters;
+    }
+
+    @VisibleForTesting
+    public Map<Integer, Map<Pattern, List<ApduServiceInfo>>> getPollingLoopPatternFilters() {
+        return mPollingLoopPatternFilters;
     }
 }

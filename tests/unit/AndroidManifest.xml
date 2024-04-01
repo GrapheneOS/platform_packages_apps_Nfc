@@ -26,6 +26,11 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS" />
     <application android:debuggable="true">
         <uses-library android:name="android.test.runner" />
+        <activity
+            android:name="com.android.nfc.cardemulation.AppChooserActivity"
+            android:theme="@style/Theme.AppCompat"
+            android:exported="false"
+            />
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
