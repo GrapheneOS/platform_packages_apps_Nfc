@@ -55,4 +55,10 @@
     <string name="nfc_blocking_alert_message" msgid="7003156052570107490">"I-tap para malaman kung paano ayusin."</string>
     <string name="nfc_logging_alert_title" msgid="5300867034660942987">"Nagre-record ng data ng NFC"</string>
     <string name="nfc_logging_alert_message" msgid="1550187184825467942">"I-tap para ihinto ang pag-record."</string>
+    <!-- no translation found for title_package_enabling_nfc (5736481508428918024) -->
+    <skip />
+    <!-- no translation found for enable_nfc_yes (694867197186062792) -->
+    <skip />
+    <!-- no translation found for enable_nfc_no (6549033065900624599) -->
+    <skip />
 </resources>
