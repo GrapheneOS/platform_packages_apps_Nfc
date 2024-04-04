@@ -19,8 +19,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.mockito.Mockito.verifyZeroInteractions;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.eq;
 
@@ -33,9 +36,11 @@ import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.ApduServiceInfo;
+import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.HostApduService;
 import android.nfc.cardemulation.PollingFrame;
 import android.os.Bundle;
+import android.os.IBinder;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.PowerManager;
@@ -45,6 +50,9 @@ import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.nfc.NfcService;
+import com.android.nfc.NfcStatsLog;
+import com.android.nfc.cardemulation.util.StatsdUtils;
 
 import org.junit.After;
 import org.junit.Assert;
@@ -54,12 +62,12 @@ import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 
 import java.util.ArrayList;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -79,6 +87,7 @@ public class HostEmulationManagerTest {
     private static final List<String> POLLING_LOOP_FILTER = List.of(PL_FILTER);
     private static final List<Pattern> POLLING_LOOP_PATTEN_FILTER
             = List.of(PL_PATTERN);
+    private static final String MOCK_AID = "A000000476416E64726F6964484340";
 
     @Mock
     private Context mContext;
@@ -94,6 +103,10 @@ public class HostEmulationManagerTest {
     private NfcAdapter mNfcAdapter;
     @Mock
     private Messenger mMessanger;
+    @Mock
+    private NfcService mNfcService;
+    @Mock
+    private StatsdUtils mStatsUtils;
     @Captor
     private ArgumentCaptor<Intent> mIntentArgumentCaptor;
     @Captor
@@ -111,19 +124,23 @@ public class HostEmulationManagerTest {
     public void setUp() {
         mStaticMockSession = ExtendedMockito.mockitoSession()
                 .mockStatic(com.android.nfc.flags.Flags.class)
+                .mockStatic(NfcStatsLog.class)
                 .mockStatic(UserHandle.class)
                 .mockStatic(NfcAdapter.class)
+                .mockStatic(NfcService.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
         MockitoAnnotations.initMocks(this);
         mTestableLooper = TestableLooper.get(this);
         when(NfcAdapter.getDefaultAdapter(mContext)).thenReturn(mNfcAdapter);
         when(UserHandle.getUserHandleForUid(eq(USER_ID))).thenReturn(USER_HANDLE);
+        when(UserHandle.of(eq(USER_ID))).thenReturn(USER_HANDLE);
+        when(NfcService.getInstance()).thenReturn(mNfcService);
         when(com.android.nfc.flags.Flags.statsdCeEventsFlag()).thenReturn(true);
         when(mContext.getSystemService(eq(PowerManager.class))).thenReturn(mPowerManager);
         when(mContext.getSystemService(eq(KeyguardManager.class))).thenReturn(mKeyguardManager);
         mHostEmulationManager = new HostEmulationManager(mContext, mTestableLooper.getLooper(),
-                mRegisteredAidCache);
+                mRegisteredAidCache, mStatsUtils);
     }
 
     @After
@@ -206,10 +223,10 @@ public class HostEmulationManagerTest {
 
     @Test
     public void testUpdatePollingLoopFilters() {
-        ApduServiceInfo serviceWithFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo serviceWithFilter = mock(ApduServiceInfo.class);
         when(serviceWithFilter.getPollingLoopFilters()).thenReturn(POLLING_LOOP_FILTER);
         when(serviceWithFilter.getPollingLoopPatternFilters()).thenReturn(List.of());
-        ApduServiceInfo serviceWithPatternFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo serviceWithPatternFilter = mock(ApduServiceInfo.class);
         when(serviceWithPatternFilter.getPollingLoopFilters()).thenReturn(List.of());
         when(serviceWithPatternFilter.getPollingLoopPatternFilters())
                 .thenReturn(POLLING_LOOP_PATTEN_FILTER);
@@ -235,16 +252,16 @@ public class HostEmulationManagerTest {
     @Test
     public void testOnPollingLoopDetected_activeServiceAlreadyBound_overlappingServices()
             throws PackageManager.NameNotFoundException, RemoteException {
-        ApduServiceInfo serviceWithFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo serviceWithFilter = mock(ApduServiceInfo.class);
         when(serviceWithFilter.getPollingLoopFilters()).thenReturn(POLLING_LOOP_FILTER);
         when(serviceWithFilter.getPollingLoopPatternFilters()).thenReturn(List.of());
         when(serviceWithFilter.getShouldAutoTransact(anyString())).thenReturn(true);
         when(serviceWithFilter.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
         when(serviceWithFilter.getUid()).thenReturn(USER_ID);
-        ApduServiceInfo overlappingServiceWithFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo overlappingServiceWithFilter = mock(ApduServiceInfo.class);
         when(overlappingServiceWithFilter.getPollingLoopFilters()).thenReturn(POLLING_LOOP_FILTER);
         when(overlappingServiceWithFilter.getPollingLoopPatternFilters()).thenReturn(List.of());
-        ApduServiceInfo serviceWithPatternFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo serviceWithPatternFilter = mock(ApduServiceInfo.class);
         when(serviceWithPatternFilter.getPollingLoopFilters()).thenReturn(List.of());
         when(serviceWithPatternFilter.getPollingLoopPatternFilters())
                 .thenReturn(POLLING_LOOP_PATTEN_FILTER);
@@ -289,12 +306,13 @@ public class HostEmulationManagerTest {
                 .getParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE);
         Assert.assertTrue(sentFrames.contains(frame1));
         Assert.assertTrue(sentFrames.contains(frame2));
+        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
     }
 
     @Test
     public void testOnPollingLoopDetected_paymentServiceAlreadyBound_4Frames()
             throws PackageManager.NameNotFoundException, RemoteException {
-        ApduServiceInfo serviceWithFilter = Mockito.mock(ApduServiceInfo.class);
+        ApduServiceInfo serviceWithFilter = mock(ApduServiceInfo.class);
         when(serviceWithFilter.getPollingLoopFilters()).thenReturn(POLLING_LOOP_FILTER);
         when(serviceWithFilter.getPollingLoopPatternFilters()).thenReturn(List.of());
         when(serviceWithFilter.getShouldAutoTransact(anyString())).thenReturn(true);
@@ -333,6 +351,7 @@ public class HostEmulationManagerTest {
         Assert.assertTrue(sentFrames.contains(frame2));
         Assert.assertTrue(sentFrames.contains(frame3));
         Assert.assertTrue(sentFrames.contains(frame4));
+        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
     }
 
     @Test
@@ -405,6 +424,500 @@ public class HostEmulationManagerTest {
         Assert.assertEquals(TapAgainDialog.ACTION_CLOSE, intent.getAction());
         Assert.assertEquals(HostEmulationManager.NFC_PACKAGE, intent.getPackage());
         Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT, mHostEmulationManager.getState());
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateIdle() {
+        byte[] emptyData = new byte[1];
+        mHostEmulationManager.mState = HostEmulationManager.STATE_IDLE;
+
+        mHostEmulationManager.onHostEmulationData(emptyData);
+
+        verifyZeroInteractions(mNfcService);
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Deactivate() {
+        byte[] emptyData = new byte[1];
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_DEACTIVATE;
+
+        mHostEmulationManager.onHostEmulationData(emptyData);
+
+        verifyZeroInteractions(mNfcService);
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_hceAid() {
+        byte[] hceAidData = createSelectAidData(HostEmulationManager.ANDROID_HCE_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+
+        mHostEmulationManager.onHostEmulationData(hceAidData);
+
+        verify(mNfcService).sendData(eq(HostEmulationManager.ANDROID_HCE_RESPONSE));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_nullResolveInfo() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(null);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_emptyResolveInfoServices() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_defaultServiceExists_requiresUnlock() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(true);
+        when(apduServiceInfo.getUid()).thenReturn(USER_ID);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(true);
+        aidResolveInfo.defaultService = apduServiceInfo;
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(apduServiceInfo, times(2)).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).logCardEmulationWrongSettingEvent();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendRequireUnlockIntent();
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyTapAgainLaunched(apduServiceInfo, CardEmulation.CATEGORY_PAYMENT);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_defaultServiceExists_secureNfcEnabled() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(true);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(true);
+        aidResolveInfo.defaultService = apduServiceInfo;
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(apduServiceInfo, times(2)).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).logCardEmulationWrongSettingEvent();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendRequireUnlockIntent();
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyTapAgainLaunched(apduServiceInfo, CardEmulation.CATEGORY_PAYMENT);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_defaultServiceExists_requiresScreenOn() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(true);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(true);
+        when(mPowerManager.isScreenOn()).thenReturn(false);
+        aidResolveInfo.defaultService = apduServiceInfo;
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(apduServiceInfo).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).logCardEmulationWrongSettingEvent();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_defaultServiceExists_notOnHost() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(false);
+        when(apduServiceInfo.isOnHost()).thenReturn(false);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(true);
+        when(mPowerManager.isScreenOn()).thenReturn(true);
+        aidResolveInfo.defaultService = apduServiceInfo;
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        verify(apduServiceInfo).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).logCardEmulationNoRoutingEvent();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mNfcService).sendData(eq(HostEmulationManager.AID_NOT_FOUND));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_noDefaultService_noActiveService() {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+        when(apduServiceInfo.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        ExtendedMockito.verify(() -> {
+            NfcStatsLog.write(NfcStatsLog.NFC_AID_CONFLICT_OCCURRED, MOCK_AID);
+        });
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_OTHER));
+        verify(mStatsUtils).logCardEmulationWrongSettingEvent();
+        Assert.assertEquals(HostEmulationManager.STATE_W4_DEACTIVATE,
+                mHostEmulationManager.getState());
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyResolverLaunched((ArrayList)aidResolveInfo.services, null,
+                CardEmulation.CATEGORY_PAYMENT);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_noDefaultService_matchingActiveService()
+            throws RemoteException {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        IBinder binder = mock(IBinder.class);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(false);
+        when(apduServiceInfo.isOnHost()).thenReturn(false);
+        when(apduServiceInfo.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(false);
+        when(mPowerManager.isScreenOn()).thenReturn(true);
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+        mHostEmulationManager.mActiveServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mActiveService = mMessanger;
+        when(mMessanger.getBinder()).thenReturn(binder);
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mPaymentService = mMessanger;
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+        verify(apduServiceInfo).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).notifyCardEmulationEventWaitingForResponse();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mContext);
+        verify(mMessanger).send(mMessageArgumentCaptor.capture());
+        Message message = mMessageArgumentCaptor.getValue();
+        Bundle bundle = message.getData();
+        Assert.assertEquals(message.what, HostApduService.MSG_COMMAND_APDU);
+        Assert.assertTrue(bundle.containsKey(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(mockAidData, bundle.getByteArray(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(mHostEmulationManager.getLocalMessenger(), message.replyTo);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_noDefaultService_noBoundActiveService() {
+        when(mContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(true);
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(false);
+        when(apduServiceInfo.isOnHost()).thenReturn(false);
+        when(apduServiceInfo.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(apduServiceInfo.getUid()).thenReturn(USER_ID);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(false);
+        when(mPowerManager.isScreenOn()).thenReturn(true);
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+        mHostEmulationManager.mActiveServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mPaymentServiceBound = false;
+        mHostEmulationManager.mServiceBound = false;
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SERVICE,
+                mHostEmulationManager.getState());
+        Assert.assertEquals(mockAidData, mHostEmulationManager.mSelectApdu);
+        verify(apduServiceInfo).getUid();
+        verify(mStatsUtils).setCardEmulationEventCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        verify(mStatsUtils).setCardEmulationEventUid(eq(USER_ID));
+        verify(mStatsUtils).notifyCardEmulationEventWaitingForResponse();
+        verify(mRegisteredAidCache).resolveAid(eq(MOCK_AID));
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).bindServiceAsUser(mIntentArgumentCaptor.capture(),
+                mServiceConnectionArgumentCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS),
+                eq(USER_HANDLE));
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(intent.getAction(), HostApduService.SERVICE_INTERFACE);
+        Assert.assertEquals(intent.getComponent(), WALLET_PAYMENT_SERVICE);
+        Assert.assertEquals(mHostEmulationManager.getServiceConnection(),
+                mServiceConnectionArgumentCaptor.getValue());
+        Assert.assertTrue(mHostEmulationManager.mServiceBound);
+        Assert.assertEquals(USER_ID, mHostEmulationManager.mServiceUserId);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Select_noSelectAid() {
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mPaymentService = mMessanger;
+
+        mHostEmulationManager.onHostEmulationData(null);
+
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mNfcService).sendData(eq(HostEmulationManager.UNKNOWN_ERROR));
+        verifyNoMoreInteractions(mNfcService);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateW4Service() {
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SERVICE;
+
+        mHostEmulationManager.onHostEmulationData(null);
+
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyNoMoreInteractions(mNfcService);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateXfer_nullAid_activeService() throws RemoteException {
+        byte[] data = new byte[3];
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+        mHostEmulationManager.mActiveServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mActiveService = mMessanger;
+
+        mHostEmulationManager.onHostEmulationData(data);
+
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mMessanger).send(mMessageArgumentCaptor.capture());
+        Message message = mMessageArgumentCaptor.getValue();
+        Bundle bundle = message.getData();
+        Assert.assertEquals(message.what, HostApduService.MSG_COMMAND_APDU);
+        Assert.assertTrue(bundle.containsKey(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(data, bundle.getByteArray(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(mHostEmulationManager.getLocalMessenger(), message.replyTo);
+        verifyNoMoreInteractions(mNfcService);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateXfer_selectAid_activeService() throws RemoteException {
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        IBinder binder = mock(IBinder.class);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(false);
+        when(apduServiceInfo.isOnHost()).thenReturn(false);
+        when(apduServiceInfo.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(false);
+        when(mPowerManager.isScreenOn()).thenReturn(true);
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+        mHostEmulationManager.mActiveServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mActiveService = mMessanger;
+        when(mMessanger.getBinder()).thenReturn(binder);
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mPaymentService = mMessanger;
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mMessanger).send(mMessageArgumentCaptor.capture());
+        Message message = mMessageArgumentCaptor.getValue();
+        Bundle bundle = message.getData();
+        Assert.assertEquals(message.what, HostApduService.MSG_COMMAND_APDU);
+        Assert.assertTrue(bundle.containsKey(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(mockAidData, bundle.getByteArray(HostEmulationManager.DATA_KEY));
+        Assert.assertEquals(mHostEmulationManager.getLocalMessenger(), message.replyTo);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_stateXfer_selectAid_noActiveService() throws RemoteException {
+        when(mContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(true);
+        byte[] mockAidData = createSelectAidData(MOCK_AID);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+        ApduServiceInfo apduServiceInfo = mock(ApduServiceInfo.class);
+        RegisteredAidCache.AidResolveInfo aidResolveInfo = mRegisteredAidCache.new AidResolveInfo();
+        aidResolveInfo.services = new ArrayList<>();
+        aidResolveInfo.services.add(apduServiceInfo);
+        aidResolveInfo.category = CardEmulation.CATEGORY_PAYMENT;
+        when(apduServiceInfo.requiresUnlock()).thenReturn(false);
+        when(apduServiceInfo.requiresScreenOn()).thenReturn(false);
+        when(apduServiceInfo.isOnHost()).thenReturn(false);
+        when(apduServiceInfo.getComponent()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(apduServiceInfo.getUid()).thenReturn(USER_ID);
+        when(mNfcService.isSecureNfcEnabled()).thenReturn(false);
+        when(mKeyguardManager.isKeyguardLocked()).thenReturn(false);
+        when(mPowerManager.isScreenOn()).thenReturn(true);
+        when(mRegisteredAidCache.resolveAid(eq(MOCK_AID))).thenReturn(aidResolveInfo);
+        mHostEmulationManager.mActiveServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mPaymentServiceBound = false;
+        mHostEmulationManager.mServiceBound = false;
+
+        mHostEmulationManager.onHostEmulationData(mockAidData);
+
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SERVICE,
+                mHostEmulationManager.getState());
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).bindServiceAsUser(mIntentArgumentCaptor.capture(),
+                mServiceConnectionArgumentCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS),
+                eq(USER_HANDLE));
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(intent.getAction(), HostApduService.SERVICE_INTERFACE);
+        Assert.assertEquals(intent.getComponent(), WALLET_PAYMENT_SERVICE);
+        Assert.assertEquals(mHostEmulationManager.getServiceConnection(),
+                mServiceConnectionArgumentCaptor.getValue());
+        Assert.assertTrue(mHostEmulationManager.mServiceBound);
+        Assert.assertEquals(USER_ID, mHostEmulationManager.mServiceUserId);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    private void verifyTapAgainLaunched(ApduServiceInfo service, String category) {
+        verify(mContext).getPackageName();
+        verify(mContext).startActivityAsUser(mIntentArgumentCaptor.capture(), eq(USER_HANDLE));
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(category, intent.getStringExtra(TapAgainDialog.EXTRA_CATEGORY));
+        Assert.assertEquals(service, intent.getParcelableExtra(TapAgainDialog.EXTRA_APDU_SERVICE));
+        int flags = Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK;
+        Assert.assertEquals(flags, intent.getFlags());
+        Assert.assertEquals(TapAgainDialog.class.getCanonicalName(),
+                intent.getComponent().getClassName());
+    }
+
+    private void verifyResolverLaunched(ArrayList<ApduServiceInfo> services,
+                                        ComponentName failedComponent, String category) {
+        verify(mContext).getPackageName();
+        verify(mContext).startActivityAsUser(mIntentArgumentCaptor.capture(), eq(UserHandle.CURRENT));
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(category, intent.getStringExtra(AppChooserActivity.EXTRA_CATEGORY));
+        Assert.assertEquals(services,
+                intent.getParcelableArrayListExtra(AppChooserActivity.EXTRA_APDU_SERVICES));
+        if (failedComponent != null) {
+            Assert.assertEquals(failedComponent,
+                    intent.getParcelableExtra(AppChooserActivity.EXTRA_FAILED_COMPONENT));
+        }
+        int flags = Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK;
+        Assert.assertEquals(flags, intent.getFlags());
+        Assert.assertEquals(AppChooserActivity.class.getCanonicalName(),
+                intent.getComponent().getClassName());
+    }
+
+    private static byte[] createSelectAidData(String aid) {
+        byte[] aidStringData = HexFormat.of().parseHex(aid);
+        byte[] aidData = new byte[HostEmulationManager.SELECT_APDU_HDR_LENGTH
+                + aidStringData.length];
+        aidData[0] = 0x00;
+        aidData[1] = HostEmulationManager.INSTR_SELECT;
+        aidData[2] = 0x04;
+        aidData[3] = 0x00;
+        aidData[4] = (byte)aidStringData.length;
+        System.arraycopy(aidStringData, 0, aidData, HostEmulationManager.SELECT_APDU_HDR_LENGTH,
+                aidData.length - HostEmulationManager.SELECT_APDU_HDR_LENGTH);
+        return aidData;
     }
 
 }
