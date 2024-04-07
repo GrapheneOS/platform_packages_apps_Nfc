@@ -597,7 +597,7 @@ public class HostEmulationManager {
 
             //close the TapAgainDialog
             Intent intent = new Intent(TapAgainDialog.ACTION_CLOSE);
-            intent.setPackage("com.android.nfc");
+            intent.setPackage(NFC_PACKAGE);
             mContext.sendBroadcastAsUser(intent, UserHandle.ALL);
         }
     }

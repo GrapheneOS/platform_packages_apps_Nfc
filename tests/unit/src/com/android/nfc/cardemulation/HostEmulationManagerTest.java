@@ -80,6 +80,9 @@ public class HostEmulationManagerTest {
     private static final ComponentName WALLET_PAYMENT_SERVICE
             = new ComponentName(WALLET_HOLDER_PACKAGE_NAME,
             "com.android.test.walletroleholder.WalletRoleHolderApduService");
+    private static final ComponentName ANOTHER_WALLET_SERVICE
+            = new ComponentName(WALLET_HOLDER_PACKAGE_NAME,
+            "com.android.test.walletroleholder.XRoleHolderApduService");
     private static final int USER_ID = 0;
     private static final UserHandle USER_HANDLE = UserHandle.of(USER_ID);
     private static final String PL_FILTER = "66696C746572";
@@ -874,6 +877,267 @@ public class HostEmulationManagerTest {
         Assert.assertTrue(mHostEmulationManager.mServiceBound);
         Assert.assertEquals(USER_ID, mHostEmulationManager.mServiceUserId);
         verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationDeactivated_activeService_enableObserveModeAfterTransaction()
+            throws RemoteException {
+        mHostEmulationManager.mActiveService = mMessanger;
+        mHostEmulationManager.mServiceBound = true;
+        mHostEmulationManager.mServiceUserId = USER_ID;
+        mHostEmulationManager.mServiceName = WALLET_PAYMENT_SERVICE;
+        mHostEmulationManager.mEnableObserveModeAfterTransaction = true;
+
+        mHostEmulationManager.onHostEmulationDeactivated();
+
+        Assert.assertNull(mHostEmulationManager.mActiveService);
+        Assert.assertNull(mHostEmulationManager.mActiveServiceName);
+        Assert.assertNull(mHostEmulationManager.mServiceName);
+        Assert.assertNull(mHostEmulationManager.mService);
+        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
+        Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
+        Assert.assertEquals(-1, mHostEmulationManager.mServiceUserId);
+        Assert.assertEquals(HostEmulationManager.STATE_IDLE, mHostEmulationManager.getState());
+        Assert.assertFalse(mHostEmulationManager.mEnableObserveModeAfterTransaction);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        verify(mNfcAdapter).setObserveModeEnabled(eq(true));
+        verify(mMessanger).send(mMessageArgumentCaptor.capture());
+        Message message = mMessageArgumentCaptor.getValue();
+        Assert.assertEquals(message.what, HostApduService.MSG_DEACTIVATED);
+        Assert.assertEquals(message.arg1, HostApduService.DEACTIVATION_LINK_LOSS);
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).unbindService(mServiceConnectionArgumentCaptor.capture());
+        verifyNoMoreInteractions(mMessanger);
+        Assert.assertEquals(mHostEmulationManager.getServiceConnection(),
+                mServiceConnectionArgumentCaptor.getValue());
+        verifyNoMoreInteractions(mContext);
+        verify(mStatsUtils).logCardEmulationDeactivatedEvent();
+    }
+
+    @Test
+    public void testOnHostEmulationDeactivated_noActiveService() throws RemoteException {
+        mHostEmulationManager.mActiveService = null;
+        mHostEmulationManager.mServiceBound = false;
+        mHostEmulationManager.mServiceUserId = USER_ID;
+        mHostEmulationManager.mEnableObserveModeAfterTransaction = false;
+
+        mHostEmulationManager.onHostEmulationDeactivated();
+
+        Assert.assertNull(mHostEmulationManager.mActiveService);
+        Assert.assertNull(mHostEmulationManager.mActiveServiceName);
+        Assert.assertNull(mHostEmulationManager.mServiceName);
+        Assert.assertNull(mHostEmulationManager.mService);
+        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
+        Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
+        Assert.assertEquals(-1, mHostEmulationManager.mServiceUserId);
+        Assert.assertEquals(HostEmulationManager.STATE_IDLE, mHostEmulationManager.getState());
+        Assert.assertFalse(mHostEmulationManager.mEnableObserveModeAfterTransaction);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verifyZeroInteractions(mMessanger);
+        verifyNoMoreInteractions(mMessanger);
+        verifyNoMoreInteractions(mContext);
+        verify(mStatsUtils).logCardEmulationDeactivatedEvent();
+    }
+
+    @Test
+    public void testOnOffHostAidSelected_noActiveService_stateXfer() {
+        mHostEmulationManager.mActiveService = null;
+        mHostEmulationManager.mServiceBound = false;
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+
+        mHostEmulationManager.onOffHostAidSelected();
+
+        Assert.assertNull(mHostEmulationManager.mActiveService);
+        Assert.assertNull(mHostEmulationManager.mActiveServiceName);
+        Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).sendBroadcastAsUser(mIntentArgumentCaptor.capture(), eq(UserHandle.ALL));
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT,
+                mHostEmulationManager.getState());
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(TapAgainDialog.ACTION_CLOSE, intent.getAction());
+        Assert.assertEquals(HostEmulationManager.NFC_PACKAGE, intent.getPackage());
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnOffHostAidSelected_activeServiceBound_stateXfer() throws RemoteException {
+        mHostEmulationManager.mActiveService = mMessanger;
+        mHostEmulationManager.mServiceBound = true;
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+
+        mHostEmulationManager.onOffHostAidSelected();
+
+        Assert.assertNull(mHostEmulationManager.mActiveService);
+        Assert.assertNull(mHostEmulationManager.mActiveServiceName);
+        Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        verify(mContext).unbindService(mServiceConnectionArgumentCaptor.capture());
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).sendBroadcastAsUser(mIntentArgumentCaptor.capture(), eq(UserHandle.ALL));
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT,
+                mHostEmulationManager.getState());
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(TapAgainDialog.ACTION_CLOSE, intent.getAction());
+        Assert.assertEquals(HostEmulationManager.NFC_PACKAGE, intent.getPackage());
+        verify(mMessanger).send(mMessageArgumentCaptor.capture());
+        Message message = mMessageArgumentCaptor.getValue();
+        Assert.assertEquals(message.what, HostApduService.MSG_DEACTIVATED);
+        Assert.assertEquals(message.arg1, HostApduService.DEACTIVATION_DESELECTED);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnOffHostAidSelected_activeServiceBound_stateNonXfer() throws RemoteException {
+        mHostEmulationManager.mActiveService = mMessanger;
+        mHostEmulationManager.mServiceBound = true;
+        mHostEmulationManager.mState = HostEmulationManager.STATE_IDLE;
+
+        mHostEmulationManager.onOffHostAidSelected();
+
+        Assert.assertNull(mHostEmulationManager.mActiveService);
+        Assert.assertNull(mHostEmulationManager.mActiveServiceName);
+        Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        verify(mContext).unbindService(mServiceConnectionArgumentCaptor.capture());
+        verify(mContext).getSystemService(eq(PowerManager.class));
+        verify(mContext).getSystemService(eq(KeyguardManager.class));
+        verify(mContext).sendBroadcastAsUser(mIntentArgumentCaptor.capture(), eq(UserHandle.ALL));
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT,
+                mHostEmulationManager.getState());
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(TapAgainDialog.ACTION_CLOSE, intent.getAction());
+        Assert.assertEquals(HostEmulationManager.NFC_PACKAGE, intent.getPackage());
+        verifyZeroInteractions(mMessanger);
+        verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testServiceConnectionOnServiceConnected_stateSelectW4_selectApdu()
+            throws RemoteException {
+        IBinder service = mock(IBinder.class);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        mHostEmulationManager.mSelectApdu = new byte[3];
+
+        mHostEmulationManager.getServiceConnection().onServiceConnected(WALLET_PAYMENT_SERVICE,
+                service);
+
+        Assert.assertEquals(mHostEmulationManager.mServiceName, WALLET_PAYMENT_SERVICE);
+        Assert.assertNotNull(mHostEmulationManager.mService);
+        Assert.assertTrue(mHostEmulationManager.mServiceBound);
+        verify(mStatsUtils).notifyCardEmulationEventServiceBound();
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+        Assert.assertNull(mHostEmulationManager.mSelectApdu);
+        verify(service).transact(eq(1), any(), eq(null), eq(1));
+    }
+
+    @Test
+    public void testServiceConnectionOnServiceConnected_stateSelectW4_pollingLoopFrames()
+            throws RemoteException {
+        IBinder service = mock(IBinder.class);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
+        mHostEmulationManager.mSelectApdu = null;
+        mHostEmulationManager.mPendingPollingLoopFrames = new ArrayList<>(List.of());
+
+        mHostEmulationManager.getServiceConnection().onServiceConnected(WALLET_PAYMENT_SERVICE,
+                service);
+
+        Assert.assertEquals(mHostEmulationManager.mServiceName, WALLET_PAYMENT_SERVICE);
+        Assert.assertNotNull(mHostEmulationManager.mService);
+        Assert.assertTrue(mHostEmulationManager.mServiceBound);
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
+        verify(service).transact(eq(1), any(), eq(null), eq(1));
+    }
+
+    @Test
+    public void testServiceConnectionOnServiceConnected_stateIdle() {
+        IBinder service = mock(IBinder.class);
+        mHostEmulationManager.mState = HostEmulationManager.STATE_IDLE;
+
+        mHostEmulationManager.getServiceConnection().onServiceConnected(WALLET_PAYMENT_SERVICE,
+                service);
+
+        verifyZeroInteractions(service);
+    }
+
+    @Test
+    public void testServiceConnectionOnServiceDisconnected() {
+        mHostEmulationManager.mService = mMessanger;
+        mHostEmulationManager.mServiceBound = true;
+        mHostEmulationManager.mServiceName = WALLET_PAYMENT_SERVICE;
+
+        mHostEmulationManager.getServiceConnection().onServiceDisconnected(WALLET_PAYMENT_SERVICE);
+
+        Assert.assertNull(mHostEmulationManager.mService);
+        Assert.assertFalse(mHostEmulationManager.mServiceBound);
+        Assert.assertNull(mHostEmulationManager.mServiceName);
+    }
+
+    @Test
+    public void testPaymentServiceConnectionOnServiceConnected() {
+        IBinder service = mock(IBinder.class);
+        mHostEmulationManager.mLastBoundPaymentServiceName = WALLET_PAYMENT_SERVICE;
+
+        mHostEmulationManager.getPaymentConnection().onServiceConnected(WALLET_PAYMENT_SERVICE,
+                service);
+
+        Assert.assertNotNull(mHostEmulationManager.mPaymentServiceName);
+        Assert.assertEquals(WALLET_PAYMENT_SERVICE, mHostEmulationManager.mPaymentServiceName);
+    }
+
+    @Test
+    public void testPaymentServiceConnectionOnServiceDisconnected() {
+        mHostEmulationManager.mPaymentService = mMessanger;
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+
+        mHostEmulationManager.getPaymentConnection().onServiceDisconnected(WALLET_PAYMENT_SERVICE);
+
+        Assert.assertNull(mHostEmulationManager.mPaymentService);
+        Assert.assertNull(mHostEmulationManager.mPaymentServiceName);
+    }
+
+    @Test
+    public void testFindSelectAid_properAid() {
+        final byte[] aidData = createSelectAidData(MOCK_AID);
+
+        String aidString = mHostEmulationManager.findSelectAid(aidData);
+
+        Assert.assertEquals(MOCK_AID, aidString);
+    }
+
+    @Test
+    public void testFindSelectAid_nullData() {
+        String aidString = mHostEmulationManager.findSelectAid(null);
+
+        Assert.assertNull(aidString);
+    }
+
+    @Test
+    public void testFindSelectAid_shortLength() {
+        final byte[] aidData = new byte[1];
+
+        String aidString = mHostEmulationManager.findSelectAid(aidData);
+
+        Assert.assertNull(aidString);
+    }
+
+    @Test
+    public void testFindSelectAid_longAidLength() {
+        final byte[] aidData = createSelectAidData(MOCK_AID);
+        aidData[4] = (byte)(HostEmulationManager.SELECT_APDU_HDR_LENGTH
+                + HexFormat.of().parseHex(MOCK_AID).length + 1);
+
+        String aidString = mHostEmulationManager.findSelectAid(aidData);
+
+        Assert.assertNull(aidString);
     }
 
     private void verifyTapAgainLaunched(ApduServiceInfo service, String category) {
