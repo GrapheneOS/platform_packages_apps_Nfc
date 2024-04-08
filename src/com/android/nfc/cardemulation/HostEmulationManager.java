@@ -48,12 +48,15 @@ import android.util.proto.ProtoOutputStream;
 
 import androidx.annotation.VisibleForTesting;
 
+import com.android.nfc.NfcInjector;
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
 import com.android.nfc.cardemulation.RegisteredServicesCache.DynamicSettings;
 import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.flags.Flags;
+import com.android.nfc.proto.NfcEventProto;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -243,6 +246,9 @@ public class HostEmulationManager {
             for (Bundle pollingFrame : pollingFrames) {
                 mPendingPollingLoopFrames.add(pollingFrame);
                 if (pollingFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE)
+                        == PollingFrame.POLLING_LOOP_TYPE_F) {
+                    service = getForegroundServiceOrDefault();
+                } else if (pollingFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE)
                         == PollingFrame.POLLING_LOOP_TYPE_UNKNOWN) {
                     byte[] data = pollingFrame.getByteArray(PollingFrame.KEY_POLLING_LOOP_DATA);
                     String dataStr = HexFormat.of().formatHex(data).toUpperCase(Locale.ROOT);
@@ -409,6 +415,13 @@ public class HostEmulationManager {
                             mHandler.postDelayed(mUnroutableAidBugReportRunnable, 1000);
                         }
                     }
+                    NfcInjector.getInstance().getNfcEventLog().logEvent(
+                            NfcEventProto.EventType.newBuilder()
+                                    .setCeUnroutableAid(
+                                        NfcEventProto.NfcCeUnroutableAid.newBuilder()
+                                            .setAid(selectAid)
+                                            .build())
+                                    .build());
                     // Tell the remote we don't handle this AID
                     NfcService.getInstance().sendData(AID_NOT_FOUND);
                     return;

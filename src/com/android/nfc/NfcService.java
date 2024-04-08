@@ -68,6 +68,7 @@ import android.nfc.TechListParcel;
 import android.nfc.TransceiveResult;
 import android.nfc.WlcListenerDeviceInfo;
 import android.nfc.cardemulation.CardEmulation;
+import android.nfc.cardemulation.PollingFrame;
 import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.AsyncTask;
@@ -109,6 +110,7 @@ import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.dhimpl.NativeNfcManager;
 import com.android.nfc.flags.FeatureFlags;
 import com.android.nfc.handover.HandoverDataParser;
+import com.android.nfc.proto.NfcEventProto;
 import com.android.nfc.wlc.NfcCharging;
 
 import org.json.JSONException;
@@ -128,6 +130,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -357,6 +360,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     boolean mIsReaderOptionEnabled = true;
     boolean mReaderOptionCapable;
     Context mContext;
+    NfcInjector mNfcInjector;
+    NfcEventLog mNfcEventLog;
     private DeviceHost mDeviceHost;
     private SharedPreferences mPrefs;
     private SharedPreferences.Editor mPrefsEditor;
@@ -630,6 +635,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     public NfcService(Application nfcApplication) {
         mUserId = ActivityManager.getCurrentUser();
         mContext = nfcApplication;
+        mNfcInjector = new NfcInjector(mContext);
+        mNfcEventLog = mNfcInjector.getNfcEventLog();
 
         mNfcTagService = new TagService();
         mNfcAdapter = new NfcAdapterService();
@@ -1131,6 +1138,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     disableInternal();
                     break;
                 case TASK_BOOT:
+                    // Initialize the event log cache.
                     boolean initialized;
                     if (mPrefs.getBoolean(PREF_FIRST_BOOT, true)) {
                         Log.i(TAG, "First Boot");
@@ -1140,13 +1148,20 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         setPaymentForegroundPreference(mUserId);
                     }
                     Log.d(TAG, "checking on firmware download");
-                    if (shouldEnableNfc()) {
+                    boolean enableNfc = shouldEnableNfc();
+                    if (enableNfc) {
                         Log.d(TAG, "NFC is on. Doing normal stuff");
                         initialized = enableInternal();
                     } else {
                         Log.d(TAG, "NFC is off.  Checking firmware version");
                         initialized = mDeviceHost.checkFirmware();
                     }
+                    mNfcEventLog.logEvent(
+                            NfcEventProto.EventType.newBuilder()
+                                    .setBootupState(NfcEventProto.NfcBootupState.newBuilder()
+                                            .setEnabled(enableNfc)
+                                            .build())
+                            .build());
                     if (initialized) {
                         // TODO(279846422) The system property will be temporary
                         // available for vendors that depend on it.
@@ -1485,6 +1500,12 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 Log.d(TAG, "Disabling reader mode because app died or moved to background");
                 mReaderModeParams = null;
                 StopPresenceChecking();
+                mNfcEventLog.logEvent(
+                        NfcEventProto.EventType.newBuilder()
+                                .setReaderModeChange(NfcEventProto.NfcReaderModeChange.newBuilder()
+                                        .setFlags(0)
+                                        .build())
+                                .build());
                 if (isNfcEnabled()) {
                     applyRouting(false);
                 }
@@ -1548,6 +1569,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 mContext.startActivityAsUser(allowUsingNfcIntent, UserHandle.CURRENT);
                 return true;
             }
+            mNfcEventLog.logEvent(
+                    NfcEventProto.EventType.newBuilder()
+                            .setStateChange(NfcEventProto.NfcStateChange.newBuilder()
+                                    .setAppInfo(NfcEventProto.NfcAppInfo.newBuilder()
+                                            .setPackageName(pkg)
+                                            .setUid(Binder.getCallingUid())
+                                            .build())
+                                    .setEnabled(true)
+                                    .build())
+                            .build());
             enableNfc();
             return true;
         }
@@ -1561,6 +1592,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 saveNfcOnSetting(false);
             }
 
+            mNfcEventLog.logEvent(
+                    NfcEventProto.EventType.newBuilder()
+                            .setStateChange(NfcEventProto.NfcStateChange.newBuilder()
+                                    .setAppInfo(NfcEventProto.NfcAppInfo.newBuilder()
+                                            .setPackageName(pkg)
+                                            .setUid(Binder.getCallingUid())
+                                            .build())
+                                    .setEnabled(false)
+                                    .build())
+                            .build());
             new EnableDisableTask().execute(TASK_DISABLE);
 
             return true;
@@ -1953,6 +1994,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         Log.e(TAG, "Reader mode Binder was never registered.");
                     }
                 }
+                mNfcEventLog.logEvent(
+                        NfcEventProto.EventType.newBuilder()
+                                .setReaderModeChange(NfcEventProto.NfcReaderModeChange.newBuilder()
+                                        .setAppInfo(NfcEventProto.NfcAppInfo.newBuilder()
+                                                .setPackageName(packageName)
+                                                .setUid(callingUid)
+                                                .build())
+                                        .setFlags(flags)
+                                        .build())
+                                .build());
                 if (isNfcEnabled()) {
                     applyRouting(false);
                 }
@@ -2262,9 +2313,48 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         @Override
         public void notifyPollingLoop(Bundle frame) {
             try {
-                ArrayList<Bundle> frames = new ArrayList<Bundle>();
-                frames.add(frame);
-                onPollingLoopDetected(frames);
+                byte[] data;
+                int type = frame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE);
+                int gain = frame.getInt(PollingFrame.KEY_POLLING_LOOP_GAIN, -1);
+                byte[] frame_data = frame.getByteArray(PollingFrame.KEY_POLLING_LOOP_DATA);
+
+                long timestamp = frame.getLong(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP);
+                HexFormat format = HexFormat.ofDelimiter(" ");
+                String timestampBytes = format.formatHex(new byte[] {
+                        (byte) (timestamp >>> 24),
+                        (byte) (timestamp >>> 16),
+                        (byte) (timestamp >>> 8),
+                        (byte) timestamp });
+                int frame_data_length = frame_data == null ? 0 : frame_data.length;
+                String frame_data_str = frame_data_length == 0 ? "" : " " + format.formatHex(frame_data);
+                String type_str = "FF";
+                switch (type) {
+                    case PollingFrame.POLLING_LOOP_TYPE_ON:
+                        type_str = "00";
+                        data = new byte[] { 0x01 };
+                        break;
+                    case PollingFrame.POLLING_LOOP_TYPE_OFF:
+                        type_str = "00";
+                        data = new byte[] { 0x00 };
+                        break;
+                    case PollingFrame.POLLING_LOOP_TYPE_A:
+                        type_str = "01";
+                        break;
+                    case PollingFrame.POLLING_LOOP_TYPE_B:
+                        type_str = "02";
+                        break;
+                    case PollingFrame.POLLING_LOOP_TYPE_F:
+                        type_str = "03";
+                        break;
+                    case PollingFrame.POLLING_LOOP_TYPE_UNKNOWN:
+                        type_str = "07";
+                        break;
+                }
+                data = format.parseHex("6f 0C " + String.format("%02x", 9 + frame_data_length)
+                        + " 03 " + type_str
+                        + " 00 " + String.format("%02x", 5 + frame_data_length) + " "
+                        + timestampBytes + " " + String.format("%02x", gain) + frame_data_str);
+                ((NativeNfcManager) mDeviceHost).notifyPollingLoopFrame(data.length, data);
             } catch (Exception ex) {
                 Log.e(TAG, "error when notifying polling loop", ex);
             }
@@ -4301,6 +4391,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 mRoutingTableParser.dump(mDeviceHost, pw);
             }
             dumpTagAppPreference(pw);
+            mNfcInjector.getNfcEventLog().dump(fd, pw, args);
             copyNativeCrashLogsIfAny(pw);
             pw.flush();
             mDeviceHost.dump(fd);

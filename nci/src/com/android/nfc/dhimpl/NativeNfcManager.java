@@ -422,7 +422,7 @@ public class NativeNfcManager implements DeviceHost {
         mListener.onHwErrorReported();
     }
 
-    private void notifyPollingLoopFrame(int data_len, byte[] p_data) {
+    public void notifyPollingLoopFrame(int data_len, byte[] p_data) {
         if (data_len < MIN_POLLING_FRAME_TLV_SIZE) {
             return;
         }

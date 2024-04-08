@@ -50,6 +50,8 @@ import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
+import com.android.nfc.NfcEventLog;
+import com.android.nfc.NfcInjector;
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.util.StatsdUtils;
@@ -109,6 +111,10 @@ public class HostEmulationManagerTest {
     @Mock
     private NfcService mNfcService;
     @Mock
+    private NfcInjector mNfcInjector;
+    @Mock
+    private NfcEventLog mNfcEventLog;
+    @Mock
     private StatsdUtils mStatsUtils;
     @Captor
     private ArgumentCaptor<Intent> mIntentArgumentCaptor;
@@ -131,6 +137,7 @@ public class HostEmulationManagerTest {
                 .mockStatic(UserHandle.class)
                 .mockStatic(NfcAdapter.class)
                 .mockStatic(NfcService.class)
+                .mockStatic(NfcInjector.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
         MockitoAnnotations.initMocks(this);
@@ -139,6 +146,8 @@ public class HostEmulationManagerTest {
         when(UserHandle.getUserHandleForUid(eq(USER_ID))).thenReturn(USER_HANDLE);
         when(UserHandle.of(eq(USER_ID))).thenReturn(USER_HANDLE);
         when(NfcService.getInstance()).thenReturn(mNfcService);
+        when(NfcInjector.getInstance()).thenReturn(mNfcInjector);
+        when(mNfcInjector.getNfcEventLog()).thenReturn(mNfcEventLog);
         when(com.android.nfc.flags.Flags.statsdCeEventsFlag()).thenReturn(true);
         when(mContext.getSystemService(eq(PowerManager.class))).thenReturn(mPowerManager);
         when(mContext.getSystemService(eq(KeyguardManager.class))).thenReturn(mKeyguardManager);

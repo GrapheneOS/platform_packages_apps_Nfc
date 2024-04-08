@@ -39,6 +39,7 @@ java_defaults {
         "modules-utils-fastxmlserializer",
         "modules-utils-shell-command-handler",
         "PlatformProperties",
+        "nfc-event-log-proto",
         "nfc_flags_lib",
     ],
     privileged: true,
