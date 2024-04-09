@@ -60,7 +60,6 @@ message NfcReaderModeChange {
   required int32 flags = 2;
 }
 
-message NfcResetReaderMode {}
 message NfcCeUnroutableAid {
   required string aid = 1;
 }

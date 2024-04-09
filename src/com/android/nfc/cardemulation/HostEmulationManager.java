@@ -238,7 +238,6 @@ public class HostEmulationManager {
                 mState = STATE_POLLING_LOOP;
             }
             int onCount = 0;
-            int offCount = 0;
             if (mPendingPollingLoopFrames == null) {
                 mPendingPollingLoopFrames = new ArrayList<Bundle>(1);
             }
@@ -297,20 +296,21 @@ public class HostEmulationManager {
                 if (mActiveService != null) {
                         service = mActiveService;
                 } else if (mPendingPollingLoopFrames.size() >= 4) {
-                    for (Bundle frame : mPendingPollingLoopFrames) {
+                    loop_on_off: for (Bundle frame : mPendingPollingLoopFrames) {
                         int type = frame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE);
                         switch (type) {
                             case PollingFrame.POLLING_LOOP_TYPE_ON:
                                 onCount++;
                                 break;
                             case PollingFrame.POLLING_LOOP_TYPE_OFF:
-                                offCount++;
+                                // Send the loop data if we've seen at least one on before an off.
+                                if (onCount >=1) {
+                                    service = getForegroundServiceOrDefault();
+                                    break loop_on_off;
+                                }
                                 break;
                             default:
                         }
-                    }
-                    if (onCount >=2 && offCount >=2) {
-                        service = getForegroundServiceOrDefault();
                     }
                 }
             }

@@ -10,6 +10,9 @@ java_library {
     },
     sdk_version: "system_current",
     min_sdk_version: "35",
-    srcs: ["event_log.proto"],
-    apex_available: ["com.android.nfcservices"],
+    srcs: ["event.proto"],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.nfcservices",
+    ],
 }
