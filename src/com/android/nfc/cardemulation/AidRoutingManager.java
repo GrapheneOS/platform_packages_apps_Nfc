@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 public class AidRoutingManager {
@@ -202,11 +203,13 @@ public class AidRoutingManager {
     //resolution, is routing required or not?
     private boolean isAidEntryUpdated(HashMap<String, Integer> currRouteForAid,
                                                 Map.Entry<String, Integer> aidEntry,
-                                                HashMap<String, Integer> prevPowerForAid){
-        if((currRouteForAid.get(aidEntry.getKey()) != aidEntry.getValue())||
-            (mPowerForAid.get(aidEntry.getKey()) != prevPowerForAid.get(aidEntry.getKey()))){
-                return true;
-            }
+                                                HashMap<String, Integer> prevPowerForAid) {
+        if(!Objects.equals(currRouteForAid.get(aidEntry.getKey()), aidEntry.getValue()) ||
+            !Objects.equals(
+                mPowerForAid.get(aidEntry.getKey()),
+                prevPowerForAid.get(aidEntry.getKey()))) {
+            return true;
+        }
         return false;
     }
 
