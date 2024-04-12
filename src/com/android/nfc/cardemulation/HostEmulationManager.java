@@ -133,6 +133,7 @@ public class HostEmulationManager {
     boolean mPaymentServiceBound = false;
 
     boolean mEnableObserveModeAfterTransaction = false;
+    boolean mEnableObserveModeOnFieldOff = false;
     ComponentName mPaymentServiceName = null;
     int mPaymentServiceUserId; // The userId of the payment service
     ComponentName mLastBoundPaymentServiceName;
@@ -341,6 +342,16 @@ public class HostEmulationManager {
             }
          }
      }
+
+    public void onFieldChangeDetected(boolean fieldOn) {
+        if (!fieldOn && mEnableObserveModeOnFieldOff &&  mEnableObserveModeAfterTransaction) {
+            Log.d(TAG, "re-enabling observe mode after NFC Field off.");
+            mEnableObserveModeAfterTransaction = false;
+            mEnableObserveModeOnFieldOff = false;
+            NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
+            adapter.setObserveModeEnabled(true);
+        }
+    }
 
     public void onHostEmulationActivated() {
         synchronized (mLock) {
@@ -601,6 +612,10 @@ public class HostEmulationManager {
                 // Don't bother telling, we're not bound to any service yet
             } else {
                 sendDeactivateToActiveServiceLocked(HostApduService.DEACTIVATION_DESELECTED);
+            }
+            if (mEnableObserveModeAfterTransaction) {
+                Log.i(TAG, "OffHost AID selected, waiting for Field off to reenable observe mode");
+                mEnableObserveModeOnFieldOff = true;
             }
             mActiveService = null;
             mActiveServiceName = null;

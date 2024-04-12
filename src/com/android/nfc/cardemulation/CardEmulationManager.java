@@ -204,6 +204,10 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mHostEmulationManager.onPollingLoopDetected(pollingFrames);
     }
 
+    public void onFieldChangeDetected(boolean fieldOn) {
+        mHostEmulationManager.onFieldChangeDetected(fieldOn);
+    }
+
     public void onHostCardEmulationActivated(int technology) {
         if (mPowerManager != null) {
             // Use USER_ACTIVITY_FLAG_INDIRECT to applying power hints without resets
