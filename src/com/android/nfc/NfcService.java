@@ -96,6 +96,7 @@ import android.se.omapi.ISecureElementService;
 import android.se.omapi.SeFrameworkInitializer;
 import android.se.omapi.SeServiceManager;
 import android.sysprop.NfcProperties;
+import android.telephony.TelephonyManager;
 import android.text.TextUtils;
 import android.util.EventLog;
 import android.util.Log;
@@ -632,6 +633,18 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         return getNfcOnSetting() && !isSatelliteModeOn() && !isNfcUserRestricted();
     }
 
+    private void registerGlobalBroadcastsReceiver() {
+        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_USER_PRESENT);
+        filter.addAction(Intent.ACTION_USER_SWITCHED);
+        filter.addAction(Intent.ACTION_USER_ADDED);
+        if (mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) {
+            filter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
+        }
+        mContext.registerReceiverForAllUsers(mReceiver, filter, null, null);
+    }
+
     public NfcService(Application nfcApplication) {
         mUserId = ActivityManager.getCurrentUser();
         mContext = nfcApplication;
@@ -711,12 +724,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mStatsdUtils = mFeatureFlags.statsdCeEventsFlag() ? new StatsdUtils() : null;
 
         // Intents for all users
-        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-        filter.addAction(Intent.ACTION_SCREEN_ON);
-        filter.addAction(Intent.ACTION_USER_PRESENT);
-        filter.addAction(Intent.ACTION_USER_SWITCHED);
-        filter.addAction(Intent.ACTION_USER_ADDED);
-        mContext.registerReceiverForAllUsers(mReceiver, filter, null, null);
+        registerGlobalBroadcastsReceiver();
 
         // Listen for work profile adds or removes.
         IntentFilter managedProfileFilter = new IntentFilter();
@@ -1275,13 +1283,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
             if (mIsRecovering) {
                  // Intents for all users
-                 IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_OFF);
-                 filter.addAction(Intent.ACTION_SCREEN_ON);
-                 filter.addAction(Intent.ACTION_USER_PRESENT);
-                 filter.addAction(Intent.ACTION_USER_SWITCHED);
-                 filter.addAction(Intent.ACTION_USER_ADDED);
-                 mContext.registerReceiverForAllUsers(mReceiver, filter, null, null);
-                 mIsRecovering = false;
+                registerGlobalBroadcastsReceiver();
+                mIsRecovering = false;
             }
 
             if(mIsPowerSavingModeEnabled) {
@@ -4151,6 +4154,15 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     new NfcDeveloperOptionNotification(mContext.createContextAsUser(
                             UserHandle.of(ActivityManager.getCurrentUser()), /*flags=*/0))
                             .startNotification();
+                }
+            } else if (action.equals(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)) {
+                if (!mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) return;
+                int state = intent.getIntExtra(TelephonyManager.EXTRA_SIM_STATE,
+                        TelephonyManager.SIM_STATE_UNKNOWN);
+                if (state == TelephonyManager.SIM_STATE_UNKNOWN
+                        || state == TelephonyManager.SIM_STATE_LOADED) {
+                    Log.w(TAG, "Restarting NFC stack on SIM state change, SIM_STATE: "  + state);
+                    mNfcInjector.killNfcStack();
                 }
             }
         }

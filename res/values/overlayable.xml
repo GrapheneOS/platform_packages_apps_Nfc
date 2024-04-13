@@ -44,6 +44,7 @@
             <item name="nfc_observe_mode_supported" type="bool" />
             <item name="nfc_proprietary_getcaps_supported" type="bool" />
             <item name="max_event_log_num" type="integer" />
+            <item name="restart_on_sim_change" type="bool" />
           <!-- Params from config.xml that can be overlaid -->
 
           <!-- Params from strings.xml that can be overlaid -->

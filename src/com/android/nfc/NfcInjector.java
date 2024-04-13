@@ -78,4 +78,11 @@ public class NfcInjector {
         return LocalDateTime.now();
     }
 
+    /**
+     * Kill the NFC stack.
+     */
+    public void killNfcStack() {
+        System.exit(0);
+    }
+
 }

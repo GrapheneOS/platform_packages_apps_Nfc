@@ -35,4 +35,6 @@
     <string-array name="nfc_allow_list" translatable="false" />
     <!-- Number of persistent events to store  -->
     <integer name="max_event_log_num">20</integer>
+    <!-- Restart NFC stack when a sim insertion/removal event is detected -->
+    <bool name="restart_on_sim_change">false</bool>
 </resources>

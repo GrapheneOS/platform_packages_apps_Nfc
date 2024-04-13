@@ -70,6 +70,7 @@
     <uses-permission android:name="android.permission.OBSERVE_ROLE_HOLDERS"/>
     <uses-permission android:name="android.permission.DUMP"/>
     <uses-permission android:name="android.permission.QUERY_CLONED_APPS"/>
+    <uses-permission android:name="android.permission.READ_PRIVILEGED_PHONE_STATE"/>
 
     <application android:name=".NfcApplication"
                  android:icon="@drawable/icon"
