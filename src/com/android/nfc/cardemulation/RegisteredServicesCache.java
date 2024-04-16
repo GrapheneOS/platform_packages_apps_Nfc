@@ -45,6 +45,8 @@ import android.util.SparseArray;
 import android.util.Xml;
 import android.util.proto.ProtoOutputStream;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.FastXmlSerializer;
 
@@ -55,8 +57,10 @@ import org.xmlpull.v1.XmlSerializer;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,6 +80,9 @@ import java.util.concurrent.atomic.AtomicReference;
 public class RegisteredServicesCache {
     static final String XML_INDENT_OUTPUT_FEATURE = "http://xmlpull.org/v1/doc/features.html#indent-output";
     static final String TAG = "RegisteredServicesCache";
+    static final String AID_XML_PATH = "dynamic_aids.xml";
+    static final String OTHER_STATUS_PATH = "other_status.xml";
+    static final String PACKAGE_DATA = "package";
     static final boolean DEBUG = NfcProperties.debug_enabled().orElse(true);
     private static final boolean VDBG = false; // turn on for local testing.
 
@@ -92,8 +99,10 @@ public class RegisteredServicesCache {
     // mUserServices holds the card emulation services that are running for each user
     final SparseArray<UserServices> mUserServices = new SparseArray<UserServices>();
     final Callback mCallback;
-    final AtomicFile mDynamicSettingsFile;
-    final AtomicFile mOthersFile;
+    final SettingsFile mDynamicSettingsFile;
+    final SettingsFile mOthersFile;
+    final ServiceParser mServiceParser;
+
     public interface Callback {
         /**
          * ServicesUpdated for specific userId.
@@ -123,7 +132,8 @@ public class RegisteredServicesCache {
         }
     };
 
-    private static class UserServices {
+    @VisibleForTesting
+    static class UserServices {
         /**
          * All services that have registered
          */
@@ -134,6 +144,60 @@ public class RegisteredServicesCache {
         final HashMap<ComponentName, OtherServiceStatus> others =
                 new HashMap<>();
     };
+
+    @VisibleForTesting
+    static class SettingsFile {
+        final AtomicFile mFile;
+        SettingsFile(Context context, String path) {
+            File dir = context.getFilesDir();
+            mFile = new AtomicFile(new File(dir, path));
+        }
+
+        boolean exists() {
+            return mFile.getBaseFile().exists();
+        }
+
+        InputStream openRead() throws FileNotFoundException {
+            return mFile.openRead();
+        }
+
+        void delete() {
+            mFile.delete();
+        }
+
+        FileOutputStream startWrite() throws IOException {
+            return mFile.startWrite();
+        }
+
+        void finishWrite(FileOutputStream fileOutputStream) {
+            mFile.finishWrite(fileOutputStream);
+        }
+
+        void failWrite(FileOutputStream fileOutputStream) {
+            mFile.failWrite(fileOutputStream);
+        }
+
+        File getBaseFile() {
+            return mFile.getBaseFile();
+        }
+    }
+
+    @VisibleForTesting
+    interface ServiceParser {
+        ApduServiceInfo parseApduService(PackageManager packageManager,
+                                         ResolveInfo resolveInfo,
+                                         boolean onHost) throws XmlPullParserException, IOException;
+    }
+
+    private static class RealServiceParser implements ServiceParser {
+
+        @Override
+        public ApduServiceInfo parseApduService(PackageManager packageManager,
+                                                ResolveInfo resolveInfo, boolean onHost)
+                throws XmlPullParserException, IOException {
+            return new ApduServiceInfo(packageManager, resolveInfo, onHost);
+        }
+    }
 
     private UserServices findOrCreateUserLocked(int userId) {
         UserServices services = mUserServices.get(userId);
@@ -153,8 +217,16 @@ public class RegisteredServicesCache {
     }
 
     public RegisteredServicesCache(Context context, Callback callback) {
+        this(context, callback, new SettingsFile(context, AID_XML_PATH),
+                new SettingsFile(context, OTHER_STATUS_PATH), new RealServiceParser());
+    }
+
+    @VisibleForTesting
+    RegisteredServicesCache(Context context, Callback callback, SettingsFile dynamicSettings,
+                            SettingsFile otherSettings, ServiceParser serviceParser) {
         mContext = context;
         mCallback = callback;
+        mServiceParser = serviceParser;
 
         refreshUserProfilesLocked();
 
@@ -172,7 +244,7 @@ public class RegisteredServicesCache {
                 if (uid != -1) {
                     boolean replaced = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false) &&
                             (Intent.ACTION_PACKAGE_ADDED.equals(action) ||
-                             Intent.ACTION_PACKAGE_REMOVED.equals(action));
+                                    Intent.ACTION_PACKAGE_REMOVED.equals(action));
                     if (!replaced) {
                         int currentUser = ActivityManager.getCurrentUser();
                         if (currentUser == getProfileParentId(UserHandle.
@@ -202,7 +274,7 @@ public class RegisteredServicesCache {
         intentFilter.addAction(Intent.ACTION_PACKAGE_REPLACED);
         intentFilter.addAction(Intent.ACTION_PACKAGE_FIRST_LAUNCH);
         intentFilter.addAction(Intent.ACTION_PACKAGE_RESTARTED);
-        intentFilter.addDataScheme("package");
+        intentFilter.addDataScheme(PACKAGE_DATA);
         mContext.registerReceiverForAllUsers(mReceiver.get(), intentFilter, null, null);
 
         // Register for events related to sdcard operations
@@ -211,9 +283,8 @@ public class RegisteredServicesCache {
         sdFilter.addAction(Intent.ACTION_EXTERNAL_APPLICATIONS_UNAVAILABLE);
         mContext.registerReceiverForAllUsers(mReceiver.get(), sdFilter, null, null);
 
-        File dataDir = mContext.getFilesDir();
-        mDynamicSettingsFile = new AtomicFile(new File(dataDir, "dynamic_aids.xml"));
-        mOthersFile = new AtomicFile(new File(dataDir, "other_status.xml"));
+        mDynamicSettingsFile = dynamicSettings;
+        mOthersFile = otherSettings;
     }
 
     void initialize() {
@@ -323,7 +394,6 @@ public class RegisteredServicesCache {
                 new Intent(OffHostApduService.SERVICE_INTERFACE),
                 ResolveInfoFlags.of(PackageManager.GET_META_DATA), UserHandle.of(userId));
         resolvedServices.addAll(resolvedOffHostServices);
-
         for (ResolveInfo resolvedService : resolvedServices) {
             try {
                 boolean onHost = !resolvedOffHostServices.contains(resolvedService);
@@ -350,7 +420,8 @@ public class RegisteredServicesCache {
                             android.Manifest.permission.BIND_NFC_SERVICE);
                     continue;
                 }
-                ApduServiceInfo service = new ApduServiceInfo(pm, resolvedService, onHost);
+                ApduServiceInfo service = mServiceParser.parseApduService(pm, resolvedService,
+                        onHost);
                 if (service != null) {
                     validServices.add(service);
                 }
@@ -531,9 +602,9 @@ public class RegisteredServicesCache {
     }
 
     private void readDynamicSettingsLocked() {
-        FileInputStream fis = null;
+        InputStream fis = null;
         try {
-            if (!mDynamicSettingsFile.getBaseFile().exists()) {
+            if (!mDynamicSettingsFile.exists()) {
                 Log.d(TAG, "Dynamic AIDs file does not exist.");
                 return;
             }
@@ -590,6 +661,7 @@ public class RegisteredServicesCache {
                                     (currentGroups.size() > 0 || currentOffHostSE != null)) {
                                 final int userId = UserHandle.
                                         getUserHandleForUid(currentUid).getIdentifier();
+                                Log.d(TAG, " ## user id - " + userId);
                                 DynamicSettings dynSettings = new DynamicSettings(currentUid);
                                 for (AidGroup group : currentGroups) {
                                     dynSettings.aidGroups.put(group.getCategory(), group);
@@ -610,7 +682,7 @@ public class RegisteredServicesCache {
                 };
             }
         } catch (Exception e) {
-            Log.e(TAG, "Could not parse dynamic AIDs file, trashing.");
+            Log.e(TAG, "Could not parse dynamic AIDs file, trashing.", e);
             mDynamicSettingsFile.delete();
         } finally {
             if (fis != null) {
@@ -625,9 +697,9 @@ public class RegisteredServicesCache {
     private void readOthersLocked() {
         Log.d(TAG, "read others locked");
 
-        FileInputStream fis = null;
+        InputStream fis = null;
         try {
-            if (!mOthersFile.getBaseFile().exists()) {
+            if (!mOthersFile.exists()) {
                 Log.d(TAG, "Dynamic AIDs file does not exist.");
                 return;
             }
@@ -687,7 +759,7 @@ public class RegisteredServicesCache {
                 }
             }
         } catch (Exception e) {
-            Log.e(TAG, "Could not parse others AIDs file, trashing.");
+            Log.e(TAG, "Could not parse others AIDs file, trashing.", e);
             mOthersFile.delete();
         } finally {
             if (fis != null) {
@@ -792,7 +864,7 @@ public class RegisteredServicesCache {
             mOthersFile.finishWrite(fos);
             return true;
         } catch (Exception e) {
-            Log.e(TAG, "Error writing dynamic AIDs", e);
+            Log.e(TAG, "Error writing other status", e);
             if (fos != null) {
                 mOthersFile.failWrite(fos);
             }
