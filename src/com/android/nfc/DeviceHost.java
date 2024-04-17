@@ -18,6 +18,7 @@ package com.android.nfc;
 
 import android.annotation.Nullable;
 import android.nfc.NdefMessage;
+import android.nfc.cardemulation.PollingFrame;
 import android.os.Bundle;
 
 import java.io.FileDescriptor;
@@ -44,7 +45,7 @@ public interface DeviceHost {
 
         public void onHwErrorReported();
 
-        public void onPollingLoopDetected(List<Bundle> pollingFrames);
+        public void onPollingLoopDetected(List<PollingFrame> pollingFrames);
 
         public void onWlcStopped(int wpt_end_condition);
 

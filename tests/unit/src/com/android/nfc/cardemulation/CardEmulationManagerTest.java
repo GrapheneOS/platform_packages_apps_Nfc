@@ -37,6 +37,7 @@ import android.nfc.cardemulation.AidGroup;
 import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.NfcFServiceInfo;
+import android.nfc.cardemulation.PollingFrame;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.PowerManager;
@@ -77,7 +78,7 @@ public class CardEmulationManagerTest {
             {0x00, (byte) 0xa4, 0x04, 0x00, (byte)0x07, (byte) 0xd2, 0x76, 0x00, 0x00,
                     (byte) 0x85, 0x01, 0x01};
     private static final String WALLET_HOLDER_PACKAGE_NAME = "com.android.test.walletroleholder";
-    private static final List<Bundle> POLLING_LOOP_FRAMES = List.of();
+    private static final List<PollingFrame> POLLING_LOOP_FRAMES = List.of();
     private static final List<ApduServiceInfo> UPDATED_SERVICES = List.of();
     private static final List<NfcFServiceInfo> UPDATED_NFC_SERVICES = List.of();
     private static final ComponentName WALLET_PAYMENT_SERVICE
@@ -120,7 +121,7 @@ public class CardEmulationManagerTest {
     @Mock
     private NfcAdapter mNfcAdapter;
     @Captor
-    private ArgumentCaptor<List<Bundle>> mPollingLoopFrameCaptor;
+    private ArgumentCaptor<List<PollingFrame>> mPollingLoopFrameCaptor;
     @Captor
     private ArgumentCaptor<byte[]> mDataCaptor;
     @Captor

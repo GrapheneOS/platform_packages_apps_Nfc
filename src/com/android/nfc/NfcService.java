@@ -488,9 +488,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     }
 
     @Override
-    public void onPollingLoopDetected(List<Bundle> pollingFrames) {
-        if (mCardEmulationManager != null) {
-            mCardEmulationManager.onPollingLoopDetected(pollingFrames);
+    public void onPollingLoopDetected(List<PollingFrame> frames) {
+        if (mCardEmulationManager != null && android.nfc.Flags.nfcReadPollingLoop()) {
+            mCardEmulationManager.onPollingLoopDetected(frames);
         }
     }
 
@@ -2318,14 +2318,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public void notifyPollingLoop(Bundle frame) {
+        public void notifyPollingLoop(PollingFrame frame) {
             try {
                 byte[] data;
-                int type = frame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE);
-                int gain = frame.getInt(PollingFrame.KEY_POLLING_LOOP_GAIN, -1);
-                byte[] frame_data = frame.getByteArray(PollingFrame.KEY_POLLING_LOOP_DATA);
+                int type = frame.getType();
+                int gain = frame.getVendorSpecificGain();
+                byte[] frame_data = frame.getData();
 
-                long timestamp = frame.getLong(PollingFrame.KEY_POLLING_LOOP_TIMESTAMP);
+                long timestamp = frame.getTimestamp();
                 HexFormat format = HexFormat.ofDelimiter(" ");
                 String timestampBytes = format.formatHex(new byte[] {
                         (byte) (timestamp >>> 24),

@@ -122,7 +122,7 @@ public class HostEmulationManager {
     boolean mServiceBound = false;
     ComponentName mServiceName = null;
     int mServiceUserId; // The UserId of the non-payment service
-    ArrayList<Bundle> mPendingPollingLoopFrames = null;
+    ArrayList<PollingFrame> mPendingPollingLoopFrames = null;
     private Map<Integer, Map<String, List<ApduServiceInfo>>> mPollingLoopFilters;
     private Map<Integer, Map<Pattern, List<ApduServiceInfo>>> mPollingLoopPatternFilters;
 
@@ -233,24 +233,24 @@ public class HostEmulationManager {
 
     @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
-    public void onPollingLoopDetected(List<Bundle> pollingFrames) {
+    public void onPollingLoopDetected(List<PollingFrame> pollingFrames) {
         synchronized (mLock) {
             if (mState == STATE_IDLE) {
                 mState = STATE_POLLING_LOOP;
             }
             int onCount = 0;
             if (mPendingPollingLoopFrames == null) {
-                mPendingPollingLoopFrames = new ArrayList<Bundle>(1);
+                mPendingPollingLoopFrames = new ArrayList<PollingFrame>(1);
             }
             Messenger service = null;
-            for (Bundle pollingFrame : pollingFrames) {
+            for (PollingFrame pollingFrame : pollingFrames) {
                 mPendingPollingLoopFrames.add(pollingFrame);
-                if (pollingFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE)
+                if (pollingFrame.getType()
                         == PollingFrame.POLLING_LOOP_TYPE_F) {
                     service = getForegroundServiceOrDefault();
-                } else if (pollingFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE)
+                } else if (pollingFrame.getType()
                         == PollingFrame.POLLING_LOOP_TYPE_UNKNOWN) {
-                    byte[] data = pollingFrame.getByteArray(PollingFrame.KEY_POLLING_LOOP_DATA);
+                    byte[] data = pollingFrame.getData();
                     String dataStr = HexFormat.of().formatHex(data).toUpperCase(Locale.ROOT);
                     List<ApduServiceInfo> serviceInfos =
                             mPollingLoopFilters.get(ActivityManager.getCurrentUser()).get(dataStr);
@@ -281,8 +281,7 @@ public class HostEmulationManager {
                         }
                         if (serviceInfo.getShouldAutoTransact(dataStr)) {
                             allowOneTransaction();
-                            pollingFrame.putBoolean(
-                                    PollingFrame.KEY_POLLING_LOOP_TRIGGERED_AUTOTRANSACT, true);
+                            pollingFrame.setTriggeredAutoTransact(true);
                         }
                         UserHandle user = UserHandle.getUserHandleForUid(serviceInfo.getUid());
                         service = bindServiceIfNeededLocked(user.getIdentifier(),
@@ -297,8 +296,8 @@ public class HostEmulationManager {
                 if (mActiveService != null) {
                         service = mActiveService;
                 } else if (mPendingPollingLoopFrames.size() >= 4) {
-                    loop_on_off: for (Bundle frame : mPendingPollingLoopFrames) {
-                        int type = frame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE);
+                    loop_on_off: for (PollingFrame frame : mPendingPollingLoopFrames) {
+                        int type = frame.getType();
                         switch (type) {
                             case PollingFrame.POLLING_LOOP_TYPE_ON:
                                 onCount++;
@@ -691,7 +690,8 @@ public class HostEmulationManager {
         }
     }
 
-    void sendPollingFramesToServiceLocked(Messenger service, ArrayList<Bundle> frames) {
+    void sendPollingFramesToServiceLocked(Messenger service,
+            ArrayList<PollingFrame> pollingFrames) {
         if (!Objects.equals(service, mActiveService)) {
             sendDeactivateToActiveServiceLocked(HostApduService.DEACTIVATION_DESELECTED);
             mActiveService = service;
@@ -705,7 +705,8 @@ public class HostEmulationManager {
         }
         Message msg = Message.obtain(null, HostApduService.MSG_POLLING_LOOP);
         Bundle msgData = new Bundle();
-        msgData.putParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE, frames);
+        msgData.putParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE,
+                pollingFrames);
         msg.setData(msgData);
         msg.replyTo = mMessenger;
         if (mState == STATE_IDLE) {

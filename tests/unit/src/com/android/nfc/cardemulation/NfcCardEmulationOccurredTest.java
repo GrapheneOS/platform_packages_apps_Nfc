@@ -39,7 +39,6 @@ import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.PollingFrame;
 import android.os.Binder;
-import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -196,30 +195,30 @@ public final class NfcCardEmulationOccurredTest {
     public void testOnPollingLoopDetected() {
         if (!mNfcSupported) return;
 
-        Bundle pollingFrame = mock(Bundle.class);
-        ArrayList<Bundle> pollingFrames = new ArrayList<Bundle>();
+        PollingFrame pollingFrame = mock(PollingFrame.class);
+        ArrayList<PollingFrame> pollingFrames = new ArrayList<PollingFrame>();
         pollingFrames.add(pollingFrame);
         ComponentName componentName = mock(ComponentName.class);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");
         when(mockAidCache.getPreferredService()).thenReturn(componentName);
         mHostEmulation.onPollingLoopDetected(pollingFrames);
-        Bundle resultBundle = mHostEmulation.mPendingPollingLoopFrames.get(0);
-        Assert.assertEquals(pollingFrame, resultBundle);
+        PollingFrame resultPollingFrame = mHostEmulation.mPendingPollingLoopFrames.get(0);
+        Assert.assertEquals(pollingFrame, resultPollingFrame);
     }
 
     @Test
     public void testOnPollingLoopDetectedServiceBound() {
         if (!mNfcSupported) return;
 
-        Bundle pollingLoopTypeOnFrame = mock(Bundle.class);
-        ArrayList<Bundle> pollingLoopTypeOnFrames = new ArrayList<Bundle>();
+        PollingFrame pollingLoopTypeOnFrame = mock(PollingFrame.class);
+        ArrayList<PollingFrame> pollingLoopTypeOnFrames = new ArrayList<PollingFrame>();
         pollingLoopTypeOnFrames.add(pollingLoopTypeOnFrame);
-        Bundle pollingLoopTypeOffFrame = mock(Bundle.class);
-        ArrayList<Bundle> pollingLoopTypeOffFrames = new ArrayList<Bundle>();
+        PollingFrame pollingLoopTypeOffFrame = mock(PollingFrame.class);
+        ArrayList<PollingFrame> pollingLoopTypeOffFrames = new ArrayList<PollingFrame>();
         pollingLoopTypeOffFrames.add(pollingLoopTypeOffFrame);
-        when(pollingLoopTypeOnFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE))
+        when(pollingLoopTypeOnFrame.getType())
                 .thenReturn(PollingFrame.POLLING_LOOP_TYPE_ON);
-        when(pollingLoopTypeOffFrame.getInt(PollingFrame.KEY_POLLING_LOOP_TYPE))
+        when(pollingLoopTypeOffFrame.getType())
                 .thenReturn(PollingFrame.POLLING_LOOP_TYPE_OFF);
         ComponentName componentName = mock(ComponentName.class);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");

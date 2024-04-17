@@ -32,6 +32,7 @@ import android.nfc.cardemulation.AidGroup;
 import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.NfcFServiceInfo;
+import android.nfc.cardemulation.PollingFrame;
 import android.os.Binder;
 import android.os.Bundle;
 import android.os.Looper;
@@ -200,7 +201,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     }
 
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
-    public void onPollingLoopDetected(List<Bundle> pollingFrames) {
+    public void onPollingLoopDetected(List<PollingFrame> pollingFrames) {
         mHostEmulationManager.onPollingLoopDetected(pollingFrames);
     }
 

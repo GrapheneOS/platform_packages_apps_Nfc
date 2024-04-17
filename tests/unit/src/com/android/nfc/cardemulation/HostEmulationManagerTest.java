@@ -289,10 +289,11 @@ public class HostEmulationManagerTest {
         when(mPackageManager.getApplicationInfo(eq(WALLET_HOLDER_PACKAGE_NAME), eq(0)))
                 .thenReturn(applicationInfo);
         String data = "filter";
-        Bundle frame1 = new Bundle();
-        Bundle frame2 = new Bundle();
-        frame1.putInt(PollingFrame.KEY_POLLING_LOOP_TYPE, PollingFrame.POLLING_LOOP_TYPE_UNKNOWN);
-        frame1.putByteArray(PollingFrame.KEY_POLLING_LOOP_DATA, data.getBytes());
+        PollingFrame frame1 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_UNKNOWN,
+                data.getBytes(), 0, 0, false);
+        PollingFrame frame2 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_OFF,
+                null, 0, 0, false);
+
         mHostEmulationManager.mActiveService = mMessanger;
 
         mHostEmulationManager.onPollingLoopDetected(List.of(frame1, frame2));
@@ -306,15 +307,14 @@ public class HostEmulationManagerTest {
                 .contains(overlappingServiceWithFilter));
         verify(mNfcAdapter).setObserveModeEnabled(eq(false));
         Assert.assertTrue(mHostEmulationManager.mEnableObserveModeAfterTransaction);
-        Assert.assertTrue(frame1.containsKey(PollingFrame.KEY_POLLING_LOOP_TRIGGERED_AUTOTRANSACT));
-        Assert.assertTrue(frame1.getBoolean(PollingFrame.KEY_POLLING_LOOP_TRIGGERED_AUTOTRANSACT));
+        Assert.assertTrue(frame1.getTriggeredAutoTransact());
         Assert.assertEquals(mHostEmulationManager.mState, HostEmulationManager.STATE_POLLING_LOOP);
         verify(mMessanger).send(mMessageArgumentCaptor.capture());
         Message message = mMessageArgumentCaptor.getValue();
         Bundle bundle = message.getData();
         Assert.assertEquals(message.what, HostApduService.MSG_POLLING_LOOP);
         Assert.assertTrue(bundle.containsKey(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE));
-        ArrayList<Bundle> sentFrames = bundle
+        ArrayList<PollingFrame> sentFrames = bundle
                 .getParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE);
         Assert.assertTrue(sentFrames.contains(frame1));
         Assert.assertTrue(sentFrames.contains(frame2));
@@ -337,14 +337,14 @@ public class HostEmulationManagerTest {
         applicationInfo.uid = USER_ID;
         when(mPackageManager.getApplicationInfo(eq(WALLET_HOLDER_PACKAGE_NAME), eq(0)))
                 .thenReturn(applicationInfo);
-        Bundle frame1 = new Bundle();
-        Bundle frame2 = new Bundle();
-        Bundle frame3 = new Bundle();
-        Bundle frame4 = new Bundle();
-        frame1.putInt(PollingFrame.KEY_POLLING_LOOP_TYPE, PollingFrame.POLLING_LOOP_TYPE_ON);
-        frame2.putInt(PollingFrame.KEY_POLLING_LOOP_TYPE, PollingFrame.POLLING_LOOP_TYPE_ON);
-        frame3.putInt(PollingFrame.KEY_POLLING_LOOP_TYPE, PollingFrame.POLLING_LOOP_TYPE_OFF);
-        frame4.putInt(PollingFrame.KEY_POLLING_LOOP_TYPE, PollingFrame.POLLING_LOOP_TYPE_OFF);
+        PollingFrame frame1 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_ON,
+                null, 0, 0, false);
+        PollingFrame frame2 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_ON,
+                null, 0, 0, false);
+        PollingFrame frame3 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_OFF,
+                null, 0, 0, false);
+        PollingFrame frame4 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_OFF,
+                null, 0, 0, false);
         mHostEmulationManager.mPaymentService = mMessanger;
         mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
 
@@ -357,7 +357,7 @@ public class HostEmulationManagerTest {
         Bundle bundle = message.getData();
         Assert.assertEquals(message.what, HostApduService.MSG_POLLING_LOOP);
         Assert.assertTrue(bundle.containsKey(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE));
-        ArrayList<Bundle> sentFrames = bundle
+        ArrayList<PollingFrame> sentFrames = bundle
                 .getParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE);
         Assert.assertTrue(sentFrames.contains(frame1));
         Assert.assertTrue(sentFrames.contains(frame2));
