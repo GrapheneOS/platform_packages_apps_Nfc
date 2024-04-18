@@ -52,7 +52,6 @@ import com.android.nfc.NfcInjector;
 import com.android.nfc.NfcService;
 import com.android.nfc.NfcStatsLog;
 import com.android.nfc.cardemulation.RegisteredAidCache.AidResolveInfo;
-import com.android.nfc.cardemulation.RegisteredServicesCache.DynamicSettings;
 import com.android.nfc.cardemulation.util.StatsdUtils;
 import com.android.nfc.flags.Flags;
 import com.android.nfc.proto.NfcEventProto;
@@ -257,13 +256,13 @@ public class HostEmulationManager {
                     Map<Pattern, List<ApduServiceInfo>> patternMappingForUser =
                             mPollingLoopPatternFilters.get(ActivityManager.getCurrentUser());
                     Set<Pattern> patternSet = patternMappingForUser.keySet();
-                    List<Pattern> matchedPatternes = patternSet.stream()
+                    List<Pattern> matchedPatterns = patternSet.stream()
                             .filter(p -> p.matcher(dataStr).matches()).toList();
-                    if (!matchedPatternes.isEmpty()) {
+                    if (!matchedPatterns.isEmpty()) {
                         if (service == null) {
                             serviceInfos = new ArrayList<ApduServiceInfo>();
                         }
-                        for (Pattern matchedPattern : matchedPatternes) {
+                        for (Pattern matchedPattern : matchedPatterns) {
                             serviceInfos.addAll(patternMappingForUser.get(matchedPattern));
                         }
                     }
@@ -289,6 +288,13 @@ public class HostEmulationManager {
                     } else {
                         service = getForegroundServiceOrDefault();
                     }
+
+                    if (mStatsdUtils != null) {
+                        mStatsdUtils.tallyPollingFrame(dataStr, pollingFrame);
+                    }
+                }
+                if (mStatsdUtils != null) {
+                    mStatsdUtils.logPollingFrames();
                 }
             }
 
@@ -380,7 +386,9 @@ public class HostEmulationManager {
         @Override
         public void run() {
             NfcService.getInstance().mNfcDiagnostics.takeBugReport(
-                    "NFC tap failed.",
+                    "NFC tap failed."
+                        + " (If you weren't using NFC, "
+                        + "no need to submit this report.)",
                     "Couldn't route " + String.join(", ", mUnroutedAids));
         }
     }

@@ -16,6 +16,10 @@
 
 package com.android.nfc.dhimpl;
 
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__MODE_UNKNOWN;
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITHOUT_RF_DEACTIVATION;
+import static com.android.nfc.NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITH_RF_DEACTIVATION;
+
 import android.content.Context;
 import android.nfc.cardemulation.PollingFrame;
 import android.nfc.tech.Ndef;
@@ -27,6 +31,7 @@ import android.util.Log;
 import com.android.nfc.DeviceHost;
 import com.android.nfc.NfcDiscoveryParameters;
 import com.android.nfc.NfcService;
+import com.android.nfc.NfcStatsLog;
 import com.android.nfc.NfcVendorNciResponse;
 import com.android.nfc.NfcProprietaryCaps;
 import java.io.FileDescriptor;
@@ -35,7 +40,6 @@ import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HexFormat;
 import java.util.Iterator;
 
 /** Native interface to the NFC Manager functions */
@@ -97,6 +101,7 @@ public class NativeNfcManager implements DeviceHost {
         if (mContext.getResources().getBoolean(
                 com.android.nfc.R.bool.nfc_proprietary_getcaps_supported)) {
             mProprietaryCaps = NfcProprietaryCaps.createFromByteArray(getProprietaryCaps());
+            logProprietaryCaps(mProprietaryCaps);
         }
         mIsoDepMaxTransceiveLength = getIsoDepMaxTransceiveLength();
         return ret;
@@ -533,5 +538,35 @@ public class NativeNfcManager implements DeviceHost {
 
     private void notifyCommandTimeout() {
         NfcService.getInstance().storeNativeCrashLogs();
+    }
+
+    /** wrappers for values */
+    private final int CAPS_OBSERVE_MODE_UNKNOWN =
+            NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__MODE_UNKNOWN;
+    private final int CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION =
+          NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITH_RF_DEACTIVATION;
+    private final int CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION =
+       NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITHOUT_RF_DEACTIVATION;
+    private final int CAPS_OBSERVE_MODE_NOT_SUPPORTED =
+            NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__NOT_SUPPORTED;
+
+    private void logProprietaryCaps(NfcProprietaryCaps proprietaryCaps) {
+        int observeModeStatsd = CAPS_OBSERVE_MODE_UNKNOWN;
+
+        NfcProprietaryCaps.PassiveObserveMode mode = proprietaryCaps.getPassiveObserveMode();
+
+        if (mode == NfcProprietaryCaps.PassiveObserveMode.SUPPORT_WITH_RF_DEACTIVATION) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION;
+        } else if (mode == NfcProprietaryCaps.PassiveObserveMode.SUPPORT_WITHOUT_RF_DEACTIVATION) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION;
+        } else if (mode == NfcProprietaryCaps.PassiveObserveMode.NOT_SUPPORTED) {
+            observeModeStatsd = CAPS_OBSERVE_MODE_NOT_SUPPORTED;
+        }
+
+        NfcStatsLog.write(NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED,
+                observeModeStatsd,
+                proprietaryCaps.isPollingFrameNotificationSupported(),
+                proprietaryCaps.isPowerSavingModeSupported(),
+                proprietaryCaps.isAutotransactPollingLoopFilterSupported());
     }
 }
