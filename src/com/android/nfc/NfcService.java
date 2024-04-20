@@ -2437,7 +2437,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                        NfcVendorNciResponse response =
                                mDeviceHost.sendRawVendorCmd(mt, gid, oid, payload);
                        if (response.status == NCI_STATUS_OK) {
-                           sendVendorNciResponse(response.gid, response.oid, response.payload);
+                           mHandler.post(() -> mNfcAdapter.sendVendorNciResponse(
+                                             response.gid, response.oid, response.payload));
                        }
                        return Integer.valueOf(response.status);
                    }

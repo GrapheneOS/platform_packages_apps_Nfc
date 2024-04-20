@@ -32,6 +32,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import androidx.annotation.VisibleForTesting;
 
 public class AidRoutingManager {
 
@@ -80,8 +81,8 @@ public class AidRoutingManager {
     HashMap<String, Integer> mPowerForAid = new HashMap<String, Integer>();
 
     RoutingOptionManager mRoutingOptionManager = RoutingOptionManager.getInstance();
-
-    final class AidEntry {
+    @VisibleForTesting
+    public final class AidEntry {
         boolean isOnHost;
         String offHostSE;
         int route;

@@ -173,7 +173,7 @@ public class RegisteredAidCache {
     }
 
     @VisibleForTesting
-    RegisteredAidCache(Context context, WalletRoleObserver walletRoleObserver,
+    public RegisteredAidCache(Context context, WalletRoleObserver walletRoleObserver,
             AidRoutingManager routingManager) {
         mContext = context;
         mWalletRoleObserver = walletRoleObserver;
