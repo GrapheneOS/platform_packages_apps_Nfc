@@ -119,7 +119,6 @@ bool isDiscoveryStarted();
 **
 *****************************************************************************/
 namespace android {
-static jint sLastError = ERROR_BUFFER_TOO_SMALL;
 static SyncEvent sNfaEnableEvent;                // event for NFA_Enable()
 static SyncEvent sNfaDisableEvent;               // event for NFA_Disable()
 static SyncEvent sNfaEnableDisablePollingEvent;  // event for
@@ -1601,22 +1600,6 @@ TheEnd:
 
 /*******************************************************************************
 **
-** Function:        nfcManager_doGetLastError
-**
-** Description:     Get the last error code.
-**                  e: JVM environment.
-**                  o: Java object.
-**
-** Returns:         Last error code.
-**
-*******************************************************************************/
-static jint nfcManager_doGetLastError(JNIEnv*, jobject) {
-  LOG(DEBUG) << StringPrintf("%s: last error=%i", __func__, sLastError);
-  return sLastError;
-}
-
-/*******************************************************************************
-**
 ** Function:        nfcManager_doDeinitialize
 **
 ** Description:     Turn off NFC.
@@ -2105,11 +2088,6 @@ static jboolean nfcManager_doSetNfcSecure(JNIEnv* e, jobject o,
   return true;
 }
 
-static jstring nfcManager_doGetNfaStorageDir(JNIEnv* e, jobject o) {
-  string nfaStorageDir = NfcConfig::getString(NAME_NFA_STORAGE, "/data/nfc");
-  return e->NewStringUTF(nfaStorageDir.c_str());
-}
-
 static void nfcManager_doSetNfceePowerAndLinkCtrl(JNIEnv* e, jobject o,
                                                   jboolean enable) {
   RoutingManager& routingManager = RoutingManager::getInstance();
@@ -2355,8 +2333,6 @@ static JNINativeMethod gMethods[] = {
 
     {"doStartStopPolling", "(Z)V", (void*)nfcManager_doStartStopPolling},
 
-    {"doGetLastError", "()I", (void*)nfcManager_doGetLastError},
-
     {"disableDiscovery", "()V", (void*)nfcManager_disableDiscovery},
 
     {"doSetTimeout", "(II)Z", (void*)nfcManager_doSetTimeout},
@@ -2394,9 +2370,6 @@ static JNINativeMethod gMethods[] = {
     {"getAidTableSize", "()I", (void*)nfcManager_getAidTableSize},
 
     {"doSetNfcSecure", "(Z)Z", (void*)nfcManager_doSetNfcSecure},
-
-    {"getNfaStorageDir", "()Ljava/lang/String;",
-     (void*)nfcManager_doGetNfaStorageDir},
 
     {"doSetNfceePowerAndLinkCtrl", "(Z)V",
      (void*)nfcManager_doSetNfceePowerAndLinkCtrl},

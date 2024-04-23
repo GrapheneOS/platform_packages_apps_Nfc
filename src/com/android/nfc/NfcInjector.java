@@ -17,13 +17,34 @@
 package com.android.nfc;
 
 import android.annotation.NonNull;
+import android.app.ActivityManager;
+import android.app.backup.BackupManager;
 import android.content.ApexEnvironment;
 import android.content.Context;
+import android.content.res.Resources;
+import android.nfc.Constants;
+import android.nfc.NfcFrameworkInitializer;
+import android.nfc.NfcServiceManager;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.RemoteException;
+import android.os.SystemProperties;
 import android.os.UserHandle;
+import android.os.VibrationEffect;
+import android.provider.Settings;
+import android.se.omapi.ISecureElementService;
+import android.se.omapi.SeFrameworkInitializer;
+import android.se.omapi.SeServiceManager;
+import android.text.TextUtils;
 import android.util.AtomicFile;
+import android.util.Log;
 
+import com.android.nfc.cardemulation.util.StatsdUtils;
+import com.android.nfc.dhimpl.NativeNfcManager;
+import com.android.nfc.flags.FeatureFlags;
+import com.android.nfc.handover.HandoverDataParser;
 import com.android.nfc.proto.NfcEventProto;
 
 import java.io.File;
@@ -40,8 +61,21 @@ public class NfcInjector {
     private static final String EVENT_LOG_FILE_NAME = "event_log.binpb";
 
     private final Context mContext;
+    private final Looper mMainLooper;
     private final NfcEventLog mNfcEventLog;
-
+    private final RoutingTableParser mRoutingTableParser;
+    private final ScreenStateHelper mScreenStateHelper;
+    private final NfcUnlockManager mNfcUnlockManager;
+    private final HandoverDataParser mHandoverDataParser;
+    private final DeviceConfigFacade mDeviceConfigFacade;
+    private final NfcDispatcher mNfcDispatcher;
+    private final VibrationEffect mVibrationEffect;
+    private final BackupManager mBackupManager;
+    private final FeatureFlags mFeatureFlags;
+    private final StatsdUtils mStatsdUtils;
+    private final ForegroundUtils mForegroundUtils;
+    private final NfcDiagnostics mNfcDiagnostics;
+    private final NfcServiceManager.ServiceRegisterer mNfcManagerRegisterer;
     private static NfcInjector sInstance;
 
     public static NfcInjector getInstance() {
@@ -49,10 +83,32 @@ public class NfcInjector {
         return sInstance;
     }
 
-    public NfcInjector(@NonNull Context context) {
+
+    public NfcInjector(@NonNull Context context, @NonNull Looper mainLooper) {
         if (sInstance != null) throw new IllegalStateException("Nfc injector instance not null");
 
         mContext = context;
+        mMainLooper = mainLooper;
+        mRoutingTableParser = new RoutingTableParser();
+        mScreenStateHelper = new ScreenStateHelper(mContext);
+        mNfcUnlockManager = NfcUnlockManager.getInstance();
+        mHandoverDataParser = new HandoverDataParser();
+        mDeviceConfigFacade = new DeviceConfigFacade(mContext, new Handler(mainLooper));
+        mNfcDispatcher = new NfcDispatcher(mContext, mHandoverDataParser, isInProvisionMode());
+        mVibrationEffect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE);
+        mBackupManager = new BackupManager(mContext);
+        mFeatureFlags = new com.android.nfc.flags.FeatureFlagsImpl();
+        mStatsdUtils = mFeatureFlags.statsdCeEventsFlag() ? new StatsdUtils() : null;
+        mForegroundUtils =
+                ForegroundUtils.getInstance(mContext.getSystemService(ActivityManager.class));
+        mNfcDiagnostics = new NfcDiagnostics(mContext);
+
+        NfcServiceManager manager = NfcFrameworkInitializer.getNfcServiceManager();
+        if (manager == null) {
+            Log.e(TAG, "NfcServiceManager is null");
+            throw new UnsupportedOperationException();
+        }
+        mNfcManagerRegisterer = manager.getNfcManagerServiceRegisterer();
 
         // Create UWB event log thread.
         HandlerThread eventLogThread = new HandlerThread("NfcEventLog");
@@ -62,8 +118,72 @@ public class NfcInjector {
         sInstance = this;
     }
 
+    public Context getContext() {
+        return mContext;
+    }
+
+    public Looper getMainLooper() {
+        return mMainLooper;
+    }
+
     public NfcEventLog getNfcEventLog() {
         return mNfcEventLog;
+    }
+
+    public ScreenStateHelper getScreenStateHelper() {
+        return mScreenStateHelper;
+    }
+
+    public RoutingTableParser getRoutingTableParser() {
+        return mRoutingTableParser;
+    }
+
+    public NfcUnlockManager getNfcUnlockManager() {
+        return mNfcUnlockManager;
+    }
+
+    public HandoverDataParser getHandoverDataParser() {
+        return mHandoverDataParser;
+    }
+
+    public DeviceConfigFacade getDeviceConfigFacade() {
+        return mDeviceConfigFacade;
+    }
+
+    public NfcDispatcher getNfcDispatcher() {
+        return mNfcDispatcher;
+    }
+
+    public VibrationEffect getVibrationEffect() {
+        return mVibrationEffect;
+    }
+
+    public BackupManager getBackupManager() {
+        return mBackupManager;
+    }
+
+    public FeatureFlags getFeatureFlags() {
+        return mFeatureFlags;
+    }
+
+    public StatsdUtils getStatsdUtils() {
+        return mStatsdUtils;
+    }
+
+    public ForegroundUtils getForegroundUtils() {
+        return mForegroundUtils;
+    }
+
+    public NfcDiagnostics getNfcDiagnostics() {
+        return mNfcDiagnostics;
+    }
+
+    public NfcServiceManager.ServiceRegisterer getNfcManagerRegisterer() {
+        return mNfcManagerRegisterer;
+    }
+
+    public DeviceHost makeDeviceHost(DeviceHost.DeviceHostListener listener) {
+        return new NativeNfcManager(mContext, listener);
     }
 
     /**
@@ -78,6 +198,45 @@ public class NfcInjector {
         return LocalDateTime.now();
     }
 
+    public boolean isInProvisionMode() {
+        boolean isNfcProvisioningEnabled = false;
+        try {
+            isNfcProvisioningEnabled = mContext.getResources().getBoolean(
+                    R.bool.enable_nfc_provisioning);
+        } catch (Resources.NotFoundException e) {
+        }
+
+        if (isNfcProvisioningEnabled) {
+            return Settings.Global.getInt(mContext.getContentResolver(),
+                    Settings.Global.DEVICE_PROVISIONED, 0) == 0;
+        } else {
+            return false;
+        }
+    }
+
+    public boolean checkIsSecureNfcCapable() {
+        if (mContext.getResources().getBoolean(R.bool.enable_secure_nfc_support)) {
+            return true;
+        }
+        String[] skuList = mContext.getResources().getStringArray(
+                R.array.config_skuSupportsSecureNfc);
+        String sku = SystemProperties.get("ro.boot.hardware.sku");
+        if (TextUtils.isEmpty(sku) || !Utils.arrayContains(skuList, sku)) {
+            return false;
+        }
+        return true;
+    }
+
+    public ISecureElementService connectToSeService() throws RemoteException {
+        SeServiceManager manager = SeFrameworkInitializer.getSeServiceManager();
+        if (manager == null) {
+            Log.e(TAG, "SEServiceManager is null");
+            return null;
+        }
+        return ISecureElementService.Stub.asInterface(
+                manager.getSeManagerServiceRegisterer().get());
+    }
+
     /**
      * Kill the NFC stack.
      */
@@ -85,4 +244,17 @@ public class NfcInjector {
         System.exit(0);
     }
 
+    public boolean isSatelliteModeSensitive() {
+        final String satelliteRadios =
+                Settings.Global.getString(mContext.getContentResolver(),
+                        Constants.SETTINGS_SATELLITE_MODE_RADIOS);
+        return satelliteRadios == null || satelliteRadios.contains(Settings.Global.RADIO_NFC);
+    }
+
+    /** Returns true if satellite mode is turned on. */
+    public boolean isSatelliteModeOn() {
+        if (!isSatelliteModeSensitive()) return false;
+        return Settings.Global.getInt(
+                mContext.getContentResolver(), Constants.SETTINGS_SATELLITE_MODE_ENABLED, 0) == 1;
+    }
 }

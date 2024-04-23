@@ -35,6 +35,7 @@ android_test {
 
     jni_libs: [
         // Required for ExtendedMockito
+        "libnfc_nci_jni",
         "libdexmakerjvmtiagent",
         "libstaticjvmtiagent",
     ],

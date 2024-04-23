@@ -58,11 +58,8 @@ android_app {
     certificate: "platform",
     sdk_version: "core_platform",
     srcs: [
-        "src/**/*.java",
+        ":nfc-sources",
         "shim_src/non_apex/**/*.java",
-        "nci/**/*.java",
-        ":framework-nfc-javastream-protos",
-        ":statslog-Nfc-java-gen",
     ],
     libs: [
         // order matters: classes in framework-nfc are resolved before framework, meaning
@@ -85,11 +82,8 @@ android_app {
     sdk_version: "module_current",
     certificate: "nfc",
     srcs: [
-        "src/**/*.java",
+        ":nfc-sources",
         "shim_src/apex/**/*.java",
-        "nci/**/*.java",
-        ":framework-nfc-javastream-protos",
-        ":statslog-Nfc-java-gen",
     ],
     libs: [
         "framework-annotations-lib",
@@ -120,6 +114,8 @@ filegroup {
     name: "nfc-sources",
     srcs: [
         "src/**/*.java",
+        "nci/**/*.java",
+        ":framework-nfc-javastream-protos",
         ":statslog-Nfc-java-gen",
     ],
     visibility: [
