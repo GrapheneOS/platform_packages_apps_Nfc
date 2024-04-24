@@ -1053,6 +1053,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
                 NfcAdapter.PREFERRED_PAYMENT_CHANGED);
         updateForShouldDefaultToObserveMode(userId);
     }
+
     private void updateForShouldDefaultToObserveMode(int userId) {
         long token = Binder.clearCallingIdentity();
         try {
@@ -1060,19 +1061,19 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
                 Log.d(TAG, "observe mode isn't enabled");
                 return;
             }
+
+            NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
+            if (adapter == null) {
+                Log.e(TAG, "adapter is null, returning");
+                return;
+            }
+            ComponentName preferredService = mAidCache.getPreferredService();
+            boolean enableObserveMode = mServiceCache.doesServiceShouldDefaultToObserveMode(userId,
+                    preferredService);
+            adapter.setObserveModeEnabled(enableObserveMode);
         } finally {
             Binder.restoreCallingIdentity(token);
         }
-        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-        if (adapter == null) {
-            Log.e(TAG, "adapter is null, returning");
-            return;
-        }
-        ComponentName preferredService = mAidCache.getPreferredService();
-        boolean enableObserveMode = mServiceCache.doesServiceShouldDefaultToObserveMode(userId,
-                preferredService);
-        adapter.setObserveModeEnabled(enableObserveMode);
-
     }
 
     @Override
@@ -1097,5 +1098,9 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
 
     public boolean isRequiresScreenOnServiceExist() {
         return mAidCache.isRequiresScreenOnServiceExist();
+    }
+
+    public boolean isPreferredServicePackageNameForUser(String packageName, int userId) {
+        return mAidCache.isPreferredServicePackageNameForUser(packageName, userId);
     }
 }

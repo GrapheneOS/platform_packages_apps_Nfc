@@ -304,20 +304,6 @@ public class NativeNfcManager implements DeviceHost {
 
     public native int getAidTableSize();
 
-    private native void doSetP2pInitiatorModes(int modes);
-
-    @Override
-    public void setP2pInitiatorModes(int modes) {
-        doSetP2pInitiatorModes(modes);
-    }
-
-    private native void doSetP2pTargetModes(int modes);
-
-    @Override
-    public void setP2pTargetModes(int modes) {
-        doSetP2pTargetModes(modes);
-    }
-
     @Override
     public boolean getExtendedLengthApdusSupported() {
         /* 261 is the default size if extended length frames aren't supported */

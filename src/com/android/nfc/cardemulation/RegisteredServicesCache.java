@@ -1008,6 +1008,9 @@ public class RegisteredServicesCache {
                 Log.e(TAG, "UID mismatch.");
                 return false;
             }
+            if (!serviceInfo.isOnHost() && !autoTransact) {
+                return false;
+            }
             serviceInfo.addPollingLoopFilter(pollingLoopFilter, autoTransact);
             newServices = new ArrayList<ApduServiceInfo>(services.services.values());
         }
@@ -1061,6 +1064,9 @@ public class RegisteredServicesCache {
                 // we should have known about it), or somebody calling us from
                 // a different uid.
                 Log.e(TAG, "UID mismatch.");
+                return false;
+            }
+            if (!serviceInfo.isOnHost() && !autoTransact) {
                 return false;
             }
             serviceInfo.addPollingLoopPatternFilter(pollingLoopPatternFilter, autoTransact);

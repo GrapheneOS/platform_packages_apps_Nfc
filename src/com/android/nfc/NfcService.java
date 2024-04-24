@@ -336,6 +336,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcDiscoveryParameters.getNfcOffParameters();
 
     ReaderModeParams mReaderModeParams;
+    DiscoveryTechParams mDiscoveryTechParams;
 
     private int mUserId;
     boolean mPollingPaused;
@@ -596,6 +597,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         public int flags;
         public IAppCallback callback;
         public int presenceCheckDelay;
+        public IBinder binder;
+        public int uid;
+    }
+
+    final class DiscoveryTechParams {
         public IBinder binder;
         public int uid;
     }
@@ -1299,6 +1305,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 mHandler.removeMessages(MSG_DELAY_POLLING);
                 mPollingDisableDeathRecipients.clear();
                 mReaderModeParams = null;
+                mDiscoveryTechParams = null;
             }
             mNfcDispatcher.setForegroundDispatch(null, null, new String[0][]);
 
@@ -1488,6 +1495,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 resetReaderModeParams();
             }
         }
+        synchronized (NfcService.this) {
+            if (mDiscoveryTechParams != null && mDiscoveryTechParams.uid == uid) {
+                mDiscoveryTechParams.binder.unlinkToDeath(mDiscoveryTechDeathRecipient, 0);
+                mDeviceHost.resetDiscoveryTech();
+                mDiscoveryTechParams = null;
+                if (isNfcEnabled()) {
+                  applyRouting(true);
+                }
+            }
+        }
     }
 
     public void enableNfc() {
@@ -1595,59 +1612,31 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         @Override
         public boolean setObserveMode(boolean enable) {
             int callingUid = Binder.getCallingUid();
-            UserHandle user = Binder.getCallingUserHandle();
-            long token = Binder.clearCallingIdentity();
-            boolean isWalletRoleEnabled = false;
-            String defaultWalletPackage = null;
             int triggerSource =
                     NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__TRIGGER_SOURCE_UNKNOWN;
-
-            try {
-                if (!android.nfc.Flags.nfcObserveMode()) {
-                    return false;
+            if (!isPrivileged(callingUid)) {
+                NfcPermissions.enforceUserPermissions(mContext);
+                String packageName = getPackageNameFromUid(callingUid);
+                if (packageName == null) {
+                    Log.e(TAG, "no package name associated with non-privileged calling UID");
                 }
-                isWalletRoleEnabled = android.permission.flags.Flags.walletRoleEnabled();
-                if (isWalletRoleEnabled) {
-                    defaultWalletPackage = getWalletRoleHolder(user);
-                }
-            } finally {
-                Binder.restoreCallingIdentity(token);
-            }
-            boolean privilegedCaller = false;
-            // Allow non-foreground callers with system uid or default payment service.
-            String packageName = getPackageNameFromUid(callingUid);
-            if (packageName != null) {
-                if (isWalletRoleEnabled) {
-                    privilegedCaller = (isPrivileged(callingUid)
-                            || packageName.equals(defaultWalletPackage));
-
-                    if (privilegedCaller) {
-                        triggerSource =
-                                NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__WALLET_ROLE_HOLDER;
+                if (mCardEmulationManager.isPreferredServicePackageNameForUser(packageName,
+                        UserHandle.getUserHandleForUid(callingUid).getIdentifier())) {
+                    if (android.permission.flags.Flags.walletRoleEnabled()) {
+                        UserHandle user = Binder.getCallingUserHandle();
+                        triggerSource = packageName.equals(getWalletRoleHolder(user))
+                            ? NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__WALLET_ROLE_HOLDER
+                            : NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__FOREGROUND_APP;
+                    } else {
+                        if (mForegroundUtils.isInForeground(callingUid)) {
+                            triggerSource =
+                                NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__FOREGROUND_APP;
+                        }
                     }
                 } else {
-                    String defaultPaymentService = Settings.Secure.getString(
-                            mContext.createContextAsUser(user, 0).getContentResolver(),
-                            Constants.SETTINGS_SECURE_NFC_PAYMENT_DEFAULT_COMPONENT);
-                    if (defaultPaymentService != null) {
-                        String defaultPaymentPackage =
-                                ComponentName.unflattenFromString(defaultPaymentService)
-                                        .getPackageName();
-                        privilegedCaller = (callingUid == Process.SYSTEM_UID
-                                || packageName.equals(defaultPaymentPackage));
-                    }
-                }
-            } else {
-                privilegedCaller = isPrivileged(callingUid);
-            }
-            if (!privilegedCaller) {
-                NfcPermissions.enforceUserPermissions(mContext);
-                if (!mForegroundUtils.isInForeground(Binder.getCallingUid())) {
-                    Log.e(TAG, "setObserveMode: Caller not in foreground.");
+                    Log.e(TAG, "setObserveMode: Caller not preferred NFC service.");
                     return false;
                 }
-                triggerSource =
-                        NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__FOREGROUND_APP;
             }
 
             if (mStatsdUtils != null) {
@@ -1867,6 +1856,23 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         public void updateDiscoveryTechnology(IBinder binder, int pollTech, int listenTech)
                 throws RemoteException {
             NfcPermissions.enforceUserPermissions(mContext);
+            int callingUid = Binder.getCallingUid();
+            boolean privilegedCaller = false;
+            // Allow non-foreground callers with system uid or systemui
+            String packageName = getPackageNameFromUid(callingUid);
+            if (packageName != null) {
+                privilegedCaller = (callingUid == Process.SYSTEM_UID
+                        || packageName.equals(SYSTEM_UI));
+            } else {
+                privilegedCaller = (callingUid == Process.SYSTEM_UID);
+            }
+            if (!privilegedCaller
+                    && !mForegroundUtils.registerUidToBackgroundCallback(
+                            NfcService.this, callingUid)) {
+                Log.e(TAG,
+                  "updateDiscoveryTechnology: Caller shall be in foreground or a system process.");
+                return;
+            }
             synchronized (NfcService.this) {
                 if (!isNfcEnabled()) {
                     Log.d(TAG, "updateDiscoveryTechnology: NFC is not enabled.");
@@ -1877,16 +1883,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         Integer.toHexString(pollTech) +
                         ", listenTech: 0x" + Integer.toHexString(listenTech));
                 if (pollTech == NfcAdapter.FLAG_USE_ALL_TECH &&
-                        listenTech == NfcAdapter.FLAG_USE_ALL_TECH) {
+                        listenTech == NfcAdapter.FLAG_USE_ALL_TECH &&
+                        mDiscoveryTechParams != null) {
                     try {
-                        mDeviceHost.resetDiscoveryTech();
                         binder.unlinkToDeath(mDiscoveryTechDeathRecipient, 0);
+                        mDeviceHost.resetDiscoveryTech();
+                        mDiscoveryTechParams = null;
                     } catch (NoSuchElementException e) {
                         Log.e(TAG, "Change Tech Binder was never registered.");
                     }
                 } else {
                     try {
                         mDeviceHost.setDiscoveryTech(pollTech, listenTech);
+                        mDiscoveryTechParams = new DiscoveryTechParams();
+                        mDiscoveryTechParams.uid = callingUid;
+                        mDiscoveryTechParams.binder = binder;
                         binder.linkToDeath(mDiscoveryTechDeathRecipient, 0);
                     } catch (RemoteException e) {
                         Log.e(TAG, "Remote binder has already died.");
@@ -2494,13 +2505,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     final class DiscoveryTechDeathRecipient implements IBinder.DeathRecipient {
         @Override
         public void binderDied() {
+            if (DBG) Log.d(TAG, "setDiscoveryTech death recipient");
             synchronized (NfcService.this) {
-                if (isNfcEnabled()) {
-                    if (DBG) Log.d(TAG, "setDiscoveryTech death recipient");
+                if (isNfcEnabled() && mDiscoveryTechParams != null) {
                     mDeviceHost.resetDiscoveryTech();
-                    applyRouting(true);
+                    mDiscoveryTechParams = null;
                 }
             }
+            applyRouting(true);
         }
     }
 
