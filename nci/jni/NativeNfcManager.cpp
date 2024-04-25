@@ -135,9 +135,7 @@ static bool sIsDisabling = false;
 static bool sRfEnabled = false;   // whether RF discovery is enabled
 static bool sSeRfActive = false;  // whether RF with SE is likely active
 static bool sReaderModeEnabled =
-    false;  // whether we're only reading tags, not allowing P2p/card emu
-static bool sP2pEnabled = false;
-static bool sP2pActive = false;  // whether p2p was last active
+    false;  // whether we're only reading tags, not allowing card emu
 static bool sAbortConnlessWait = false;
 static jint sLfT3tMax = 0;
 static bool sRoutingInitialized = false;
@@ -158,7 +156,6 @@ static bool sEnableVendorNciNotifications = false;
 static void nfaConnectionCallback(uint8_t event, tNFA_CONN_EVT_DATA* eventData);
 static void nfaDeviceManagementCallback(uint8_t event,
                                         tNFA_DM_CBACK_DATA* eventData);
-static bool isPeerToPeer(tNFA_ACTIVATED& activated);
 static bool isListenMode(tNFA_ACTIVATED& activated);
 static tNFA_STATUS stopPolling_rfDiscoveryDisabled();
 static tNFA_STATUS startPolling_rfDiscoveryDisabled(
@@ -243,25 +240,13 @@ static void handleRfDiscoveryEvent(tNFC_RESULT_DEVT* discoveredDevice) {
     return;
   }
 
-  bool isP2p = natTag.isP2pDiscovered();
-
   if (natTag.getNumDiscNtf() > 1) {
     natTag.setMultiProtocolTagSupport(true);
-    if (isP2p) {
-      // Remove NFC_DEP NTF count
-      // Skip NFC_DEP protocol in MultiProtocolTag select.
-      natTag.setNumDiscNtf(natTag.getNumDiscNtf() - 1);
-    }
   }
 
-  if (sP2pEnabled && !sReaderModeEnabled && isP2p) {
-    // select the peer that supports P2P
-    natTag.selectP2p();
-  } else {
-    natTag.setNumDiscNtf(natTag.getNumDiscNtf() - 1);
-    // select the first of multiple tags that is discovered
-    natTag.selectFirstTag();
-  }
+  natTag.setNumDiscNtf(natTag.getNumDiscNtf() - 1);
+  // select the first of multiple tags that is discovered
+  natTag.selectFirstTag();
 }
 
 /*******************************************************************************
@@ -407,45 +392,20 @@ static void nfaConnectionCallback(uint8_t connEvent,
           NFA_Deactivate(FALSE);
         }
       }
-      if (isPeerToPeer(eventData->activated)) {
-        if (sReaderModeEnabled) {
-          LOG(DEBUG) << StringPrintf("%s: ignoring peer target in reader mode.",
-                                     __func__);
-          NFA_Deactivate(FALSE);
-          break;
-        }
-        sP2pActive = true;
-        LOG(DEBUG) << StringPrintf("%s: NFA_ACTIVATED_EVT; is p2p", __func__);
-        if (NFC_GetNCIVersion() == NCI_VERSION_1_0) {
-          // Disable RF field events in case of p2p
-          uint8_t nfa_disable_rf_events[] = {0x00};
-          LOG(DEBUG) << StringPrintf("%s: Disabling RF field events", __func__);
-          status = NFA_SetConfig(NCI_PARAM_ID_RF_FIELD_INFO,
-                                 sizeof(nfa_disable_rf_events),
-                                 &nfa_disable_rf_events[0]);
-          if (status == NFA_STATUS_OK) {
-            LOG(DEBUG) << StringPrintf("%s: Disabled RF field events",
-                                       __func__);
-          } else {
-            LOG(ERROR) << StringPrintf("%s: Failed to disable RF field events",
-                                       __func__);
-          }
-        }
-      } else {
-        NfcTag::getInstance().connectionEventHandler(connEvent, eventData);
-        if (NfcTag::getInstance().getNumDiscNtf()) {
-          /*If its multiprotocol tag, deactivate tag with current selected
-          protocol to sleep . Select tag with next supported protocol after
-          deactivation event is received*/
-          NFA_Deactivate(true);
-        }
 
-        // We know it is not activating for P2P.  If it activated in
-        // listen mode then it is likely for an SE transaction.
-        // Send the RF Event.
-        if (isListenMode(eventData->activated)) {
-          sSeRfActive = true;
-        }
+      NfcTag::getInstance().connectionEventHandler(connEvent, eventData);
+      if (NfcTag::getInstance().getNumDiscNtf()) {
+        /*If its multiprotocol tag, deactivate tag with current selected
+        protocol to sleep . Select tag with next supported protocol after
+        deactivation event is received*/
+        NFA_Deactivate(true);
+      }
+
+      // If it activated in
+      // listen mode then it is likely for an SE transaction.
+      // Send the RF Event.
+      if (isListenMode(eventData->activated)) {
+        sSeRfActive = true;
       }
     } break;
     case NFA_DEACTIVATED_EVT:  // NFC link/protocol deactivated
@@ -475,30 +435,6 @@ static void nfaConnectionCallback(uint8_t connEvent,
           (eventData->deactivated.type == NFA_DEACTIVATE_TYPE_DISCOVERY)) {
         if (sSeRfActive) {
           sSeRfActive = false;
-        } else if (sP2pActive) {
-          sP2pActive = false;
-          // Make sure RF field events are re-enabled
-          LOG(DEBUG) << StringPrintf("%s: NFA_DEACTIVATED_EVT; is p2p",
-                                     __func__);
-          if (NFC_GetNCIVersion() == NCI_VERSION_1_0) {
-            // Disable RF field events in case of p2p
-            uint8_t nfa_enable_rf_events[] = {0x01};
-
-            if (!sIsDisabling && sIsNfaEnabled) {
-              LOG(DEBUG) << StringPrintf("%s: Enabling RF field events",
-                                         __func__);
-              status = NFA_SetConfig(NCI_PARAM_ID_RF_FIELD_INFO,
-                                     sizeof(nfa_enable_rf_events),
-                                     &nfa_enable_rf_events[0]);
-              if (status == NFA_STATUS_OK) {
-                LOG(DEBUG) << StringPrintf("%s: Enabled RF field events",
-                                           __func__);
-              } else {
-                LOG(ERROR) << StringPrintf(
-                    "%s: Failed to enable RF field events", __func__);
-              }
-            }
-          }
         }
       }
 
@@ -770,7 +706,7 @@ void nfaDeviceManagementCallback(uint8_t dmEvent,
       LOG(DEBUG) << StringPrintf(
           "%s: NFA_DM_RF_FIELD_EVT; status=0x%X; field status=%u", __func__,
           eventData->rf_field.status, eventData->rf_field.rf_field_status);
-      if (!sP2pActive && eventData->rf_field.status == NFA_STATUS_OK) {
+      if (eventData->rf_field.status == NFA_STATUS_OK) {
         struct nfc_jni_native_data* nat = getNative(NULL, NULL);
         if (!nat) {
           LOG(ERROR) << StringPrintf("cached nat is null");
@@ -1501,11 +1437,8 @@ static void nfcManager_enableDiscovery(JNIEnv* e, jobject o,
     stopPolling_rfDiscoveryDisabled();
     startPolling_rfDiscoveryDisabled(tech_mask);
 
-    // Start P2P listening if tag polling was enabled
     if (sPollingEnabled) {
-            LOG(DEBUG) << StringPrintf("%s: Enable p2pListening", __func__);
-
-            if (reader_mode && !sReaderModeEnabled) {
+      if (reader_mode && !sReaderModeEnabled) {
         sReaderModeEnabled = true;
         NFA_DisableListening();
 
@@ -1639,7 +1572,6 @@ static jboolean nfcManager_doDeinitialize(JNIEnv*, jobject) {
   sDiscoveryEnabled = false;
   sPollingEnabled = false;
   sIsDisabling = false;
-  sP2pEnabled = false;
   sReaderModeEnabled = false;
   gActivated = false;
   sLfT3tMax = 0;
@@ -1656,19 +1588,6 @@ static jboolean nfcManager_doDeinitialize(JNIEnv*, jobject) {
   LOG(DEBUG) << StringPrintf("%s: exit", __func__);
   return JNI_TRUE;
 }
-
-/*******************************************************************************
-**
-** Function:        isPeerToPeer
-**
-** Description:     Whether the activation data indicates the peer supports
-*NFC-DEP.
-**                  activated: Activation data.
-**
-** Returns:         True if the peer supports NFC-DEP.
-**
-*******************************************************************************/
-static bool isPeerToPeer(tNFA_ACTIVATED& activated) { return false; }
 
 /*******************************************************************************
 **
@@ -1926,7 +1845,7 @@ static void nfcManager_doSetScreenState(JNIEnv* e, jobject o,
        state == NFA_SCREEN_STATE_OFF_UNLOCKED) &&
       (prevScreenState == NFA_SCREEN_STATE_ON_UNLOCKED ||
        prevScreenState == NFA_SCREEN_STATE_ON_LOCKED) &&
-      (!sP2pActive) && (!sSeRfActive)) {
+      (!sSeRfActive)) {
     // screen turns off, disconnect tag if connected
     nativeNfcTag_doDisconnect(NULL, NULL);
   }
