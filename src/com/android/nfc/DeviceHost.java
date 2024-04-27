@@ -178,10 +178,6 @@ public interface DeviceHost {
 
     void dump(FileDescriptor fd);
 
-    boolean enableScreenOffSuspend();
-
-    boolean disableScreenOffSuspend();
-
     public void doSetScreenState(int screen_state_mask, boolean alwaysPoll);
 
     public int getNciVersion();

@@ -30,6 +30,7 @@ import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.RemoteException;
+import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.VibrationEffect;
@@ -256,5 +257,32 @@ public class NfcInjector {
         if (!isSatelliteModeSensitive()) return false;
         return Settings.Global.getInt(
                 mContext.getContentResolver(), Constants.SETTINGS_SATELLITE_MODE_ENABLED, 0) == 1;
+    }
+
+    /**
+     * Get the current time of the clock in milliseconds.
+     *
+     * @return Current time in milliseconds.
+     */
+    public long getWallClockMillis() {
+        return System.currentTimeMillis();
+    }
+
+    /**
+     * Returns milliseconds since boot, including time spent in sleep.
+     *
+     * @return Current time since boot in milliseconds.
+     */
+    public long getElapsedSinceBootMillis() {
+        return SystemClock.elapsedRealtime();
+    }
+
+    /**
+     * Returns nanoseconds since boot, including time spent in sleep.
+     *
+     * @return Current time since boot in milliseconds.
+     */
+    public long getElapsedSinceBootNanos() {
+        return SystemClock.elapsedRealtimeNanos();
     }
 }

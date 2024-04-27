@@ -283,8 +283,10 @@ public class HostEmulationManager {
                             pollingFrame.setTriggeredAutoTransact(true);
                         }
                         UserHandle user = UserHandle.getUserHandleForUid(serviceInfo.getUid());
-                        service = bindServiceIfNeededLocked(user.getIdentifier(),
-                                serviceInfo.getComponent());
+                        if (serviceInfo.isOnHost()) {
+                            service = bindServiceIfNeededLocked(user.getIdentifier(),
+                                    serviceInfo.getComponent());
+                        }
                     } else {
                         service = getForegroundServiceOrDefault();
                     }
@@ -332,7 +334,7 @@ public class HostEmulationManager {
         Log.d(TAG, "disabling observe mode for one transaction.");
         mEnableObserveModeAfterTransaction = true;
         NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-        adapter.setObserveModeEnabled(false);
+        mHandler.post(() -> adapter.setObserveModeEnabled(false));
     }
 
     /**
@@ -354,7 +356,7 @@ public class HostEmulationManager {
             mEnableObserveModeAfterTransaction = false;
             mEnableObserveModeOnFieldOff = false;
             NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-            adapter.setObserveModeEnabled(true);
+            mHandler.post(() -> adapter.setObserveModeEnabled(true));
         }
     }
 
@@ -603,7 +605,7 @@ public class HostEmulationManager {
                 Log.d(TAG, "re-enabling observe mode after HCE deactivation");
                 mEnableObserveModeAfterTransaction = false;
                 NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-                adapter.setObserveModeEnabled(true);
+                mHandler.post(() -> adapter.setObserveModeEnabled(true));
             }
 
             if (mStatsdUtils != null) {

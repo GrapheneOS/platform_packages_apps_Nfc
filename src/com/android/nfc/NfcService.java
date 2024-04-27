@@ -22,6 +22,7 @@ import static com.android.nfc.NfcStatsLog.NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGE
 
 import android.annotation.NonNull;
 import android.app.ActivityManager;
+import android.app.AlarmManager;
 import android.app.Application;
 import android.app.BroadcastOptions;
 import android.app.KeyguardManager;
@@ -108,6 +109,8 @@ import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 import android.widget.Toast;
 
+import androidx.annotation.VisibleForTesting;
+
 import com.android.nfc.DeviceHost.DeviceHostListener;
 import com.android.nfc.DeviceHost.NfcDepEndpoint;
 import com.android.nfc.DeviceHost.TagEndpoint;
@@ -184,6 +187,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     static final String NATIVE_LOG_FILE_NAME = "native_crash_logs";
     static final String NATIVE_LOG_FILE_PATH = "/data/misc/nfc/logs";
     static final int NATIVE_CRASH_FILE_SIZE = 1024 * 1024;
+    private static final String WAIT_FOR_SIM_LOADED_TIMER_TAG = "NfcWaitForSimTag";
+    @VisibleForTesting
+    public static final int WAIT_FOR_SIM_LOADED_TIMEOUT_MS = 5_000;
 
     static final int MSG_NDEF_TAG = 0;
     // Previously used: MSG_LLCP_LINK_ACTIVATION = 1
@@ -426,6 +432,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private VibrationEffect mVibrationEffect;
     private ISecureElementService mSEService;
     private VrManager mVrManager;
+    private final AlarmManager mAlarmManager;
 
     private ScreenStateHelper mScreenStateHelper;
     private ForegroundUtils mForegroundUtils;
@@ -520,9 +527,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         new ApplyRoutingTask().execute();
     }
 
-
-    @Override
-    public void onHwErrorReported() {
+    private void restartStack() {
         try {
             mContext.unregisterReceiver(mReceiver);
         } catch (IllegalArgumentException e) {
@@ -531,6 +536,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mIsRecovering = true;
         new EnableDisableTask().execute(TASK_DISABLE);
         new EnableDisableTask().execute(TASK_ENABLE);
+    }
+
+    @Override
+    public void onHwErrorReported() {
+        restartStack();
     }
 
     @Override
@@ -638,6 +648,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         filter.addAction(Intent.ACTION_USER_SWITCHED);
         filter.addAction(Intent.ACTION_USER_ADDED);
         if (mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) {
+            filter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
             filter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
         }
         mContext.registerReceiverForAllUsers(mReceiver, filter, null, null);
@@ -704,6 +715,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         } else {
             mVrManager = null;
         }
+        mAlarmManager = mContext.getSystemService(AlarmManager.class);
 
         mScreenState = mScreenStateHelper.checkScreenState();
 
@@ -855,7 +867,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 mPrefs.getBoolean(PREF_NFC_READER_OPTION_ON, NFC_READER_OPTION_DEFAULT);
         }
 
-        new EnableDisableTask().execute(TASK_BOOT);  // do blocking boot tasks
+        executeTaskBoot();  // do blocking boot tasks
 
         if (NFC_SNOOP_LOG_MODE.equals(NfcProperties.snoop_log_mode_values.FULL) ||
             NFC_VENDOR_DEBUG_ENABLED) {
@@ -863,6 +875,32 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         connectToSeService();
+    }
+
+    private AlarmManager.OnAlarmListener mDelayedBootAlarmListener =
+            () -> {
+                Log.i(TAG, "Executing delayed boot");
+                mDelayedBootAlarmListenerSet = false;
+                new EnableDisableTask().execute(TASK_BOOT);
+            };
+    private boolean mDelayedBootAlarmListenerSet = false;
+
+    private void executeTaskBoot() {
+        // If overlay is set, delay the NFC boot up until sim is ready.
+        if (mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) {
+            TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
+            int simState = telephonyManager.getSimApplicationState();
+            if (simState != TelephonyManager.SIM_STATE_LOADED) {
+                Log.i(TAG, "SIM not loaded, delaying boot");
+                mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                        mNfcInjector.getElapsedSinceBootMillis() + WAIT_FOR_SIM_LOADED_TIMEOUT_MS,
+                        WAIT_FOR_SIM_LOADED_TIMER_TAG, mDelayedBootAlarmListener, mHandler);
+                mDelayedBootAlarmListenerSet = true;
+                return;
+            }
+
+        }
+        new EnableDisableTask().execute(TASK_BOOT);
     }
 
     private void initTagAppPrefList() {
@@ -1307,7 +1345,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 mReaderModeParams = null;
                 mDiscoveryTechParams = null;
             }
-            mNfcDispatcher.setForegroundDispatch(null, null, new String[0][]);
+            mNfcDispatcher.resetForegroundDispatch();
 
             boolean result;
             if (!mIsAlwaysOnSupported || mIsRecovering
@@ -1534,7 +1572,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     final class NfcAdapterService extends INfcAdapter.Stub {
         private boolean isPrivileged(int callingUid) {
             // Check for root uid to help invoking privileged APIs from rooted shell only.
-            return callingUid == Process.SYSTEM_UID || callingUid == Process.ROOT_UID;
+            return callingUid == Process.SYSTEM_UID
+                    || callingUid == Process.NFC_UID
+                    || callingUid == Process.ROOT_UID;
         }
 
         @Override
@@ -1604,13 +1644,13 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public boolean isObserveModeEnabled() {
+        public synchronized boolean isObserveModeEnabled() {
             NfcPermissions.enforceUserPermissions(mContext);
             return mDeviceHost.isObserveModeEnabled();
         }
 
         @Override
-        public boolean setObserveMode(boolean enable) {
+        public synchronized boolean setObserveMode(boolean enable) {
             int callingUid = Binder.getCallingUid();
             int triggerSource =
                     NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__TRIGGER_SOURCE_UNKNOWN;
@@ -1738,7 +1778,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             }
             // Short-cut the disable path
             if (intent == null && filters == null && techListsParcel == null) {
-                mNfcDispatcher.setForegroundDispatch(null, null, null);
+                mNfcDispatcher.resetForegroundDispatch();
                 return;
             }
 
@@ -3164,12 +3204,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 }
             } else {
                 paramsBuilder.setTechMask(NfcDiscoveryParameters.NFC_POLL_DEFAULT);
-                paramsBuilder.setEnableP2p(false);
             }
         } else if (screenState == ScreenStateHelper.SCREEN_STATE_ON_LOCKED && mInProvisionMode) {
             paramsBuilder.setTechMask(NfcDiscoveryParameters.NFC_POLL_DEFAULT);
-            // enable P2P for MFM/EDU/Corp provisioning
-            paramsBuilder.setEnableP2p(false);
         } else if (screenState == ScreenStateHelper.SCREEN_STATE_ON_LOCKED &&
             mNfcUnlockManager.isLockscreenPollingEnabled() && isReaderOptionEnabled()) {
             int techMask = 0;
@@ -3177,7 +3214,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 techMask |= mNfcUnlockManager.getLockscreenPollMask();
             paramsBuilder.setTechMask(techMask);
             paramsBuilder.setEnableLowPowerDiscovery(false);
-            paramsBuilder.setEnableP2p(false);
         }
 
         if (mIsHceCapable && mReaderModeParams == null) {
@@ -4137,14 +4173,25 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                             UserHandle.of(ActivityManager.getCurrentUser()), /*flags=*/0))
                             .startNotification();
                 }
-            } else if (action.equals(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)) {
+            } else if (action.equals(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED) ||
+                    action.equals(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)) {
                 if (!mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) return;
                 int state = intent.getIntExtra(TelephonyManager.EXTRA_SIM_STATE,
                         TelephonyManager.SIM_STATE_UNKNOWN);
-                if (state == TelephonyManager.SIM_STATE_UNKNOWN
+                if (state == TelephonyManager.SIM_STATE_LOADED && mDelayedBootAlarmListenerSet) {
+                    Log.i(TAG, "SIM loaded, executing delayed boot");
+                    mAlarmManager.cancel(mDelayedBootAlarmListener);
+                    mDelayedBootAlarmListener.onAlarm();
+                    return;
+                }
+                // Use |SIM_STATE_ABSENT| for detecting sim removal
+                // Use |SIM_STATE_LOADED| for detecting sim insertion and ready.
+                if (state == TelephonyManager.SIM_STATE_ABSENT
                         || state == TelephonyManager.SIM_STATE_LOADED) {
-                    Log.w(TAG, "Restarting NFC stack on SIM state change, SIM_STATE: "  + state);
-                    mNfcInjector.killNfcStack();
+                    if (isNfcEnabled()) {
+                        Log.w(TAG, "Restarting NFC stack on SIM state change, SIM_STATE: " + state);
+                        restartStack();
+                    }
                 }
             }
         }

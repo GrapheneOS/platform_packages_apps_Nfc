@@ -297,6 +297,7 @@ public class HostEmulationManagerTest {
         mHostEmulationManager.mActiveService = mMessanger;
 
         mHostEmulationManager.onPollingLoopDetected(List.of(frame1, frame2));
+        mTestableLooper.processAllMessages();
 
         verify(mContext).getSystemService(eq(PowerManager.class));
         verify(mContext).getSystemService(eq(KeyguardManager.class));
@@ -898,6 +899,7 @@ public class HostEmulationManagerTest {
         mHostEmulationManager.mEnableObserveModeAfterTransaction = true;
 
         mHostEmulationManager.onHostEmulationDeactivated();
+        mTestableLooper.processAllMessages();
 
         Assert.assertNull(mHostEmulationManager.mActiveService);
         Assert.assertNull(mHostEmulationManager.mActiveServiceName);

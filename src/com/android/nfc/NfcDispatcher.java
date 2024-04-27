@@ -154,6 +154,10 @@ class NfcDispatcher {
         super.finalize();
     }
 
+    public synchronized void resetForegroundDispatch() {
+        setForegroundDispatch(null, null, new String[][]{});
+    }
+
     public synchronized void setForegroundDispatch(PendingIntent intent,
             IntentFilter[] filters, String[][] techLists) {
         if (DBG) Log.d(TAG, "Set Foreground Dispatch");
