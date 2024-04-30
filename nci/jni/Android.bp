@@ -56,6 +56,10 @@ cc_library_shared {
         "libxml2",
     ],
 
+    defaults: [
+        "aconfig_lib_cc_static_link.defaults",
+    ],
+
     product_variables: {
         debuggable: {
             cflags: [
