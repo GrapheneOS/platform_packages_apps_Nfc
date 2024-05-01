@@ -41,6 +41,7 @@ import android.sysprop.NfcProperties;
 import android.text.TextUtils;
 import android.util.AtomicFile;
 import android.util.Log;
+import android.util.Pair;
 import android.util.SparseArray;
 import android.util.Xml;
 import android.util.proto.ProtoOutputStream;
@@ -61,6 +62,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -694,16 +696,20 @@ public class RegisteredServicesCache {
         }
     }
 
-    private void readOthersLocked() {
+    @VisibleForTesting
+    static Map<Integer, List<Pair<ComponentName, OtherServiceStatus>>>
+    readOtherFromFile(SettingsFile settingsFile) {
+        Map<Integer, List<Pair<ComponentName, OtherServiceStatus>>> readSettingsMap =
+                new HashMap<>();
         Log.d(TAG, "read others locked");
 
         InputStream fis = null;
         try {
-            if (!mOthersFile.exists()) {
-                Log.d(TAG, "Dynamic AIDs file does not exist.");
-                return;
+            if (!settingsFile.exists()) {
+                Log.d(TAG, "Other settings file does not exist.");
+                return new HashMap<>();
             }
-            fis = mOthersFile.openRead();
+            fis = settingsFile.openRead();
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(fis, null);
             int eventType = parser.getEventType();
@@ -743,12 +749,15 @@ public class RegisteredServicesCache {
                             if (currentComponent != null && currentUid >= 0) {
                                 Log.d(TAG, " end of service tag");
                                 final int userId =
-                                    UserHandle.getUserHandleForUid(currentUid).getIdentifier();
+                                        UserHandle.getUserHandleForUid(currentUid).getIdentifier();
                                 OtherServiceStatus status =
                                         new OtherServiceStatus(currentUid, checked);
                                 Log.d(TAG, " ## user id - " + userId);
-                                UserServices services = findOrCreateUserLocked(userId);
-                                services.others.put(currentComponent, status);
+                                if (!readSettingsMap.containsKey(userId)) {
+                                    readSettingsMap.put(userId, new ArrayList<>());
+                                }
+                                readSettingsMap.get(userId)
+                                        .add(new Pair<>(currentComponent, status));
                             }
                             currentUid = -1;
                             currentComponent = null;
@@ -760,7 +769,7 @@ public class RegisteredServicesCache {
             }
         } catch (Exception e) {
             Log.e(TAG, "Could not parse others AIDs file, trashing.", e);
-            mOthersFile.delete();
+            settingsFile.delete();
         } finally {
             if (fis != null) {
                 try {
@@ -770,7 +779,26 @@ public class RegisteredServicesCache {
                 }
             }
         }
+        return readSettingsMap;
     }
+
+    private void readOthersLocked() {
+        Map<Integer, List<Pair<ComponentName, OtherServiceStatus>>> readSettingsMap
+                = readOtherFromFile(mOthersFile);
+        for(Integer userId: readSettingsMap.keySet()) {
+            UserServices services = findOrCreateUserLocked(userId);
+            List<Pair<ComponentName, OtherServiceStatus>> componentNameOtherServiceStatusPairs
+                    = readSettingsMap.get(userId);
+            int pairsSize = componentNameOtherServiceStatusPairs.size();
+            for(int i = 0; i < pairsSize; i++) {
+                Pair<ComponentName, OtherServiceStatus> pair
+                        = componentNameOtherServiceStatusPairs.get(i);
+                services.others.put(pair.first,
+                        pair.second);
+            }
+        }
+    }
+
     private boolean writeDynamicSettingsLocked() {
         FileOutputStream fos = null;
         try {

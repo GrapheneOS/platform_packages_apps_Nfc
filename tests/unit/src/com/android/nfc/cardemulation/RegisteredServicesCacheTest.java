@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import android.app.ActivityManager;
@@ -40,6 +41,7 @@ import android.nfc.cardemulation.HostApduService;
 import android.nfc.cardemulation.OffHostApduService;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Pair;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -62,7 +64,11 @@ import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 import org.xmlpull.v1.XmlPullParserException;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -74,9 +80,13 @@ import java.util.Map;
 public class RegisteredServicesCacheTest {
 
     private static final int USER_ID = 1;
+    private static final int SYSTEM_ID = 0;
     private static final UserHandle USER_HANDLE = UserHandle.of(USER_ID);
+    private static final UserHandle SYSTEM_USER_HANDLE = UserHandle.of(SYSTEM_ID);
     private static final UserHandle USER_HANDLE_QUITE_MODE = UserHandle.of(2);
     private static final File DIR = new File("/");
+    private static final String MOCK_FILE_PATH = "mockfile";
+    private static final String MOCK_FILE_EXT = ".xml";
     private static final String ANOTHER_PACKAGE_NAME = "com.android.test.another";
     private static final String NON_PAYMENT_NFC_PACKAGE_NAME = "com.android.test.nonpaymentnfc";
     private static final String WALLET_HOLDER_PACKAGE_NAME = "com.android.test.walletroleholder";
@@ -124,10 +134,13 @@ public class RegisteredServicesCacheTest {
     private ArgumentCaptor<Intent> mIntentArgumentCaptor;
     @Captor
     private ArgumentCaptor<List<ApduServiceInfo>> mApduServiceListCaptor;
+    @Captor
+    private ArgumentCaptor<FileOutputStream> fileOutputStreamArgumentCaptor;
 
     private MockitoSession mStaticMockSession;
     private RegisteredServicesCache mRegisteredServicesCache;
     private Map<String, ApduServiceInfo> mMappedServices;
+    private File mMockFile = new File(MOCK_FILE_PATH + MOCK_FILE_EXT);
 
     @Before
     public void setUp() throws PackageManager.NameNotFoundException, XmlPullParserException,
@@ -142,8 +155,13 @@ public class RegisteredServicesCacheTest {
                 .strictness(Strictness.LENIENT)
                 .startMocking();
         MockitoAnnotations.initMocks(this);
+        if (!mMockFile.exists()) {
+            mMockFile = File.createTempFile(MOCK_FILE_PATH, MOCK_FILE_EXT);
+        }
         mMappedServices = new HashMap<>();
         when(UserHandle.getUserHandleForUid(eq(USER_ID))).thenReturn(USER_HANDLE);
+        when(UserHandle.getUserHandleForUid(eq(SYSTEM_ID))).thenReturn(SYSTEM_USER_HANDLE);
+        when(UserHandle.of(eq(SYSTEM_ID))).thenReturn(SYSTEM_USER_HANDLE);
         when(UserHandle.of(eq(USER_ID))).thenReturn(USER_HANDLE);
         when(ActivityManager.getCurrentUser()).thenReturn(USER_ID);
         when(mContext.getSystemService(eq(UserManager.class))).thenReturn(mUserManager);
@@ -193,6 +211,9 @@ public class RegisteredServicesCacheTest {
     @After
     public void tearDown() {
         mStaticMockSession.finishMocking();
+        if (mMockFile.exists()) {
+            mMockFile.delete();
+        }
     }
 
     // Intent filter registration is actually not happening. It's just a mock verification.
@@ -245,8 +266,6 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testInitialize_filesExist() throws IOException,
             PackageManager.NameNotFoundException {
-        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
         InputStream dynamicSettingsIs = InstrumentationRegistry.getInstrumentation()
                 .getContext().getResources().getAssets()
                 .open(RegisteredServicesCache.AID_XML_PATH);
@@ -257,6 +276,8 @@ public class RegisteredServicesCacheTest {
         when(mOtherSettingsFile.openRead()).thenReturn(otherSettingsIs);
         when(mDynamicSettingsFile.exists()).thenReturn(true);
         when(mOtherSettingsFile.exists()).thenReturn(true);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
 
         mRegisteredServicesCache.initialize();
 
@@ -265,6 +286,8 @@ public class RegisteredServicesCacheTest {
         verify(mOtherSettingsFile).exists();
         verify(mDynamicSettingsFile).openRead();
         verify(mOtherSettingsFile).openRead();
+        verifyNoMoreInteractions(mDynamicSettingsFile);
+        verifyNoMoreInteractions(mOtherSettingsFile);
         // Verify that user services are read properly
         Assert.assertEquals(1, mRegisteredServicesCache.mUserServices.size());
         RegisteredServicesCache.UserServices userServices
@@ -339,6 +362,217 @@ public class RegisteredServicesCacheTest {
         Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, apduServiceInfos.get(1).getComponent());
     }
 
+    @Test
+    public void testInitialize_filesDontExist() throws IOException {
+        MockFileOutputStream mockFileOutputStream = new MockFileOutputStream();
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
+
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+
+        mRegisteredServicesCache.initialize();
+
+        // Verify that files are NOT read
+        verify(mDynamicSettingsFile).exists();
+        verifyNoMoreInteractions(mDynamicSettingsFile);
+        verify(mOtherSettingsFile).exists();
+        verify(mOtherSettingsFile).startWrite();
+        verify(mOtherSettingsFile).finishWrite(fileOutputStreamArgumentCaptor.capture());
+        verifyNoMoreInteractions(mOtherSettingsFile);
+        // Validate that no dynamic settings are read
+        Assert.assertEquals(1, mRegisteredServicesCache.mUserServices.size());
+        RegisteredServicesCache.UserServices userServices
+                = mRegisteredServicesCache.mUserServices.get(USER_ID);
+        Assert.assertTrue(userServices.dynamicSettings.isEmpty());
+        // Verify that other settings are only read from system services
+        Assert.assertEquals(1, userServices.others.size());
+        Assert.assertTrue(userServices.others.containsKey(ANOTHER_SERVICE_COMPONENT));
+        RegisteredServicesCache.OtherServiceStatus otherServiceStatus
+                = userServices.others.get(ANOTHER_SERVICE_COMPONENT);
+        Assert.assertTrue(otherServiceStatus.checked);
+        Assert.assertEquals(USER_ID, otherServiceStatus.uid);
+        // Verify that the callback is called with properly installed and filtered services.
+        verify(mCallback).onServicesUpdated(eq(USER_ID), mApduServiceListCaptor.capture(),
+                eq(false));
+        List<ApduServiceInfo> apduServiceInfos = mApduServiceListCaptor.getValue();
+        Assert.assertEquals(2, apduServiceInfos.size());
+        Assert.assertEquals(WALLET_HOLDER_SERVICE_COMPONENT, apduServiceInfos.get(0)
+                .getComponent());
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, apduServiceInfos.get(1).getComponent());
+        // Validate that other setting file is written properly with a setting
+        // that previously did not exists.
+        InputStream otherSettingsIs = mockFileOutputStream.toInputStream();
+        RegisteredServicesCache.SettingsFile otherSettingsFile
+                = Mockito.mock(RegisteredServicesCache.SettingsFile.class);
+        when(otherSettingsFile.openRead()).thenReturn(otherSettingsIs);
+        when(otherSettingsFile.exists()).thenReturn(true);
+        Map<Integer, List<Pair<ComponentName, RegisteredServicesCache.OtherServiceStatus>>>
+                readOtherSettingsFromFile = RegisteredServicesCache
+                .readOtherFromFile(otherSettingsFile);
+        Assert.assertTrue(readOtherSettingsFromFile.containsKey(USER_ID));
+        Assert.assertFalse(readOtherSettingsFromFile.get(USER_ID).isEmpty());
+        Assert.assertEquals(readOtherSettingsFromFile.get(USER_ID).get(0).first,
+                ANOTHER_SERVICE_COMPONENT);
+        Assert.assertTrue(readOtherSettingsFromFile.get(USER_ID).get(0).second.checked);
+    }
+
+    @SuppressWarnings("GuardedBy")
+    @Test
+    public void testOnUserSwitched() {
+        List<UserHandle> enabledProfiles = new ArrayList<>();
+        // Do not trigger user switch in constructor. Send empty list.
+        when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        enabledProfiles.add(USER_HANDLE);
+        enabledProfiles.add(USER_HANDLE_QUITE_MODE);
+        when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
+
+        mRegisteredServicesCache.onUserSwitched();
+
+        // Validate that quite mode profiles get filtered out.
+        Assert.assertEquals(1, mRegisteredServicesCache.mUserHandles.size());
+        Assert.assertEquals(mRegisteredServicesCache.mUserHandles.get(0), USER_HANDLE);
+    }
+
+    @SuppressWarnings("GuardedBy")
+    @Test
+    public void testOnManagedProfileChanged() {
+        List<UserHandle> enabledProfiles = new ArrayList<>();
+        // Do not trigger user switch in constructor. Send empty list.
+        when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        enabledProfiles.add(USER_HANDLE);
+        enabledProfiles.add(USER_HANDLE_QUITE_MODE);
+        when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
+
+        mRegisteredServicesCache.onManagedProfileChanged();
+
+        // Validate that quite mode profiles get filtered out.
+        Assert.assertEquals(1, mRegisteredServicesCache.mUserHandles.size());
+        Assert.assertEquals(mRegisteredServicesCache.mUserHandles.get(0), USER_HANDLE);
+    }
+
+    @Test
+    public void testHasService() {
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        Assert.assertTrue(mRegisteredServicesCache.hasService(USER_ID, ANOTHER_SERVICE_COMPONENT));
+        Assert.assertTrue(mRegisteredServicesCache.hasService(USER_ID,
+                WALLET_HOLDER_SERVICE_COMPONENT));
+    }
+
+    @Test
+    public void testGetService() {
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
+                WALLET_HOLDER_SERVICE_COMPONENT);
+        Assert.assertEquals(serviceInfo.getComponent(), WALLET_HOLDER_SERVICE_COMPONENT);
+        Assert.assertEquals(serviceInfo.getUid(), USER_ID);
+    }
+
+    @Test
+    public void testGetServices() {
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache.getServices(USER_ID);
+        Assert.assertFalse(serviceInfos.isEmpty());
+        Assert.assertEquals(2, serviceInfos.size());
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, serviceInfos.get(0).getComponent());
+        Assert.assertEquals(WALLET_HOLDER_SERVICE_COMPONENT, serviceInfos.get(1).getComponent());
+    }
+
+    @Test
+    public void testGetServicesForCategory_paymentCategory() {
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache
+                .getServicesForCategory(USER_ID, CardEmulation.CATEGORY_PAYMENT);
+        Assert.assertFalse(serviceInfos.isEmpty());
+        Assert.assertEquals(1, serviceInfos.size());
+        Assert.assertEquals(WALLET_HOLDER_SERVICE_COMPONENT, serviceInfos.get(0).getComponent());
+    }
+
+    @Test
+    public void testGetServicesForCategory_otherCategory() {
+        when(mDynamicSettingsFile.exists()).thenReturn(false);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache
+                .getServicesForCategory(USER_ID, CardEmulation.CATEGORY_OTHER);
+        Assert.assertFalse(serviceInfos.isEmpty());
+        Assert.assertEquals(1, serviceInfos.size());
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, serviceInfos.get(0).getComponent());
+    }
+
+    private class MockFileOutputStream extends FileOutputStream {
+
+        ByteArrayOutputStream mByteOutputStream;
+
+        public MockFileOutputStream() throws FileNotFoundException {
+            // Does not actually matter what the path is since we won't be writing to it.
+            super(mMockFile);
+            mByteOutputStream = new ByteArrayOutputStream();
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            mByteOutputStream.write(b, off, len);
+        }
+
+        @Override
+        public void write(byte[] b) throws IOException {
+            mByteOutputStream.write(b);
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            mByteOutputStream.write(b);
+        }
+
+        @Override
+        public void close() throws IOException {
+            mByteOutputStream.close();
+        }
+
+        @Override
+        protected void finalize() throws IOException {
+
+        }
+
+        @Override
+        public void flush() throws IOException {
+            mByteOutputStream.flush();
+        }
+
+        InputStream toInputStream() {
+            return new ByteArrayInputStream(mByteOutputStream.toByteArray());
+        }
+    }
+
     private ResolveInfo createServiceResolveInfo(boolean hasPermission,
                                                  String packageName, String className,
                                                  List<String> categories) {
@@ -347,6 +581,7 @@ public class RegisteredServicesCacheTest {
                         : PackageManager.PERMISSION_DENIED);
         ApduServiceInfo apduServiceInfo = Mockito.mock(ApduServiceInfo.class);
         when(apduServiceInfo.getComponent()).thenReturn(new ComponentName(packageName, className));
+        when(apduServiceInfo.getUid()).thenReturn(USER_ID);
         if (!categories.isEmpty()) {
             for(String category : categories) {
                when(apduServiceInfo.hasCategory(category)).thenReturn(true);
