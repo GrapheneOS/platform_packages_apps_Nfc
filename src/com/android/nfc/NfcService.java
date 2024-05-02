@@ -32,7 +32,6 @@ import android.app.VrManager;
 import android.app.backup.BackupManager;
 import android.app.role.RoleManager;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
@@ -41,7 +40,6 @@ import android.content.SharedPreferences;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.res.Resources.NotFoundException;
 import android.database.ContentObserver;
 import android.media.AudioAttributes;
 import android.media.SoundPool;
@@ -66,8 +64,6 @@ import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAntennaInfo;
-import android.nfc.NfcFrameworkInitializer;
-import android.nfc.NfcServiceManager;
 import android.nfc.Tag;
 import android.nfc.TechListParcel;
 import android.nfc.TransceiveResult;
@@ -90,7 +86,6 @@ import android.os.PowerManager.OnThermalStatusChangedListener;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.SystemClock;
-import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.VibrationAttributes;
@@ -99,11 +94,8 @@ import android.os.Vibrator;
 import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.se.omapi.ISecureElementService;
-import android.se.omapi.SeFrameworkInitializer;
-import android.se.omapi.SeServiceManager;
 import android.sysprop.NfcProperties;
 import android.telephony.TelephonyManager;
-import android.text.TextUtils;
 import android.util.EventLog;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
@@ -112,7 +104,6 @@ import android.widget.Toast;
 import androidx.annotation.VisibleForTesting;
 
 import com.android.nfc.DeviceHost.DeviceHostListener;
-import com.android.nfc.DeviceHost.NfcDepEndpoint;
 import com.android.nfc.DeviceHost.TagEndpoint;
 import com.android.nfc.cardemulation.CardEmulationManager;
 import com.android.nfc.cardemulation.util.StatsdUtils;
@@ -437,6 +428,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private ScreenStateHelper mScreenStateHelper;
     private ForegroundUtils mForegroundUtils;
 
+    private final NfcPermissions mNfcPermissions;
     private static NfcService sService;
     private static boolean sToast_debounce = false;
     private static int sToast_debounce_time_ms = 3000;
@@ -859,6 +851,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 new IntentFilter(UserManager.ACTION_USER_RESTRICTIONS_CHANGED)
         );
 
+        mNfcPermissions = new NfcPermissions(mContext);
         mReaderOptionCapable =
                 mContext.getResources().getBoolean(R.bool.enable_reader_option_support);
 
@@ -1569,6 +1562,12 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         return mIsSecureNfcEnabled;
     }
 
+    /** Helper method to check if the entity initiating the binder call is a DO/PO app. */
+    private boolean isDeviceOrProfileOwner(int uid, String packageName) {
+        return mNfcPermissions.isDeviceOwner(uid, packageName)
+                || mNfcPermissions.isProfileOwner(uid, packageName);
+    }
+
     final class NfcAdapterService extends INfcAdapter.Stub {
         private boolean isPrivileged(int callingUid) {
             // Check for root uid to help invoking privileged APIs from rooted shell only.
@@ -1579,7 +1578,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean enable(String pkg) throws RemoteException {
-            NfcPermissions.enforceAdminPermissions(mContext);
+            if (!NfcPermissions.checkAdminPermissions(mContext)
+                    && !isDeviceOrProfileOwner(Binder.getCallingUid(), pkg)) {
+                throw new SecurityException(
+                        "caller is not a system app, device owner or profile owner!");
+            }
 
             Log.i(TAG, "Enabling Nfc service. Package:" + pkg);
             List<String> allowlist = new ArrayList<>(
@@ -1608,7 +1611,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean disable(boolean saveState, String pkg) throws RemoteException {
-            NfcPermissions.enforceAdminPermissions(mContext);
+            if (!NfcPermissions.checkAdminPermissions(mContext)
+                    && !isDeviceOrProfileOwner(Binder.getCallingUid(), pkg)) {
+                throw new SecurityException(
+                        "caller is not a system app, device owner or profile owner!");
+            }
 
             Log.i(TAG, "Disabling Nfc service. Package:" + pkg);
             if (saveState) {

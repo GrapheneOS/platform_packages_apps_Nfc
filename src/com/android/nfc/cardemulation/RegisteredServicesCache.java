@@ -50,6 +50,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.FastXmlSerializer;
+import com.android.nfc.Utils;
 
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
@@ -242,28 +243,31 @@ public class RegisteredServicesCache {
                 if (RoutingOptionManager.getInstance().isRoutingTableOverrided()) {
                     if (DEBUG) Log.d(TAG, "Routing table overrided. Skip invalidateCache()");
                 }
-
-                if (uid != -1) {
-                    boolean replaced = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false) &&
-                            (Intent.ACTION_PACKAGE_ADDED.equals(action) ||
-                                    Intent.ACTION_PACKAGE_REMOVED.equals(action));
-                    if (!replaced) {
-                        int currentUser = ActivityManager.getCurrentUser();
-                        if (currentUser == getProfileParentId(UserHandle.
-                                getUserHandleForUid(uid).getIdentifier())) {
-                            if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
-                                invalidateCache(UserHandle.
-                                        getUserHandleForUid(uid).getIdentifier(), true);
-                            } else {
-                                invalidateCache(UserHandle.
-                                        getUserHandleForUid(uid).getIdentifier(), false);
-                            }
-                        } else {
-                            // Cache will automatically be updated on user switch
-                        }
+                if (uid == -1) return;
+                int userId = UserHandle.getUserHandleForUid(uid).getIdentifier();
+                int currentUser = ActivityManager.getCurrentUser();
+                if (currentUser != getProfileParentId(userId)) {
+                    // Cache will automatically be updated on user switch
+                    if (VDBG) Log.d(TAG, "Ignoring package change intent from non-current user");
+                    return;
+                }
+                if (!Utils.hasCeServicesWithValidPermissions(mContext, intent, userId)) {
+                    if (VDBG) Log.d(TAG, "Ignoring package change intent from non-CE app");
+                    return;
+                }
+                boolean replaced = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
+                        && (Intent.ACTION_PACKAGE_ADDED.equals(action)
+                        || Intent.ACTION_PACKAGE_REMOVED.equals(action));
+                if (!replaced) {
+                    if (Intent.ACTION_PACKAGE_REMOVED.equals(action)) {
+                        invalidateCache(UserHandle.
+                                getUserHandleForUid(uid).getIdentifier(), true);
                     } else {
-                        if (DEBUG) Log.d(TAG, "Ignoring package intent due to package being replaced.");
+                        invalidateCache(UserHandle.
+                                getUserHandleForUid(uid).getIdentifier(), false);
                     }
+                } else {
+                    if (DEBUG) Log.d(TAG, "Ignoring package intent due to package being replaced.");
                 }
             }
         };
