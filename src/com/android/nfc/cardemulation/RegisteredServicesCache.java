@@ -607,14 +607,19 @@ public class RegisteredServicesCache {
         return result;
     }
 
-    private void readDynamicSettingsLocked() {
+    @VisibleForTesting
+    static Map<Integer, List<Pair<ComponentName, DynamicSettings>>>
+    readDynamicSettingsFromFile(SettingsFile settingsFile) {
+        Log.d(TAG, "Reading dynamic AIDs.");
+        Map<Integer, List<Pair<ComponentName, DynamicSettings>>> readSettingsMap =
+                new HashMap<>();
         InputStream fis = null;
         try {
-            if (!mDynamicSettingsFile.exists()) {
+            if (!settingsFile.exists()) {
                 Log.d(TAG, "Dynamic AIDs file does not exist.");
-                return;
+                return new HashMap<>();
             }
-            fis = mDynamicSettingsFile.openRead();
+            fis = settingsFile.openRead();
             XmlPullParser parser = Xml.newPullParser();
             parser.setInput(fis, null);
             int eventType = parser.getEventType();
@@ -636,15 +641,17 @@ public class RegisteredServicesCache {
                         if ("service".equals(tagName) && parser.getDepth() == 2) {
                             String compString = parser.getAttributeValue(null, "component");
                             String uidString = parser.getAttributeValue(null, "uid");
-                            String offHostString = parser.getAttributeValue(null, "offHostSE");
+                            String offHostString
+                                    = parser.getAttributeValue(null, "offHostSE");
                             shouldDefaultToObserveModeStr =
-                                parser.getAttributeValue(null, "shouldDefaultToObserveMode");
+                                    parser.getAttributeValue(null, "shouldDefaultToObserveMode");
                             if (compString == null || uidString == null) {
                                 Log.e(TAG, "Invalid service attributes");
                             } else {
                                 try {
                                     currentUid = Integer.parseInt(uidString);
-                                    currentComponent = ComponentName.unflattenFromString(compString);
+                                    currentComponent = ComponentName
+                                            .unflattenFromString(compString);
                                     currentOffHostSE = offHostString;
                                     inService = true;
                                 } catch (NumberFormatException e) {
@@ -673,9 +680,13 @@ public class RegisteredServicesCache {
                                     dynSettings.aidGroups.put(group.getCategory(), group);
                                 }
                                 dynSettings.offHostSE = currentOffHostSE;
-                                dynSettings.shouldDefaultToObserveModeStr = shouldDefaultToObserveModeStr;
-                                UserServices services = findOrCreateUserLocked(userId);
-                                services.dynamicSettings.put(currentComponent, dynSettings);
+                                dynSettings.shouldDefaultToObserveModeStr
+                                        = shouldDefaultToObserveModeStr;
+                                if (!readSettingsMap.containsKey(userId)) {
+                                    readSettingsMap.put(userId, new ArrayList<>());
+                                }
+                                readSettingsMap.get(userId)
+                                        .add(new Pair<>(currentComponent, dynSettings));
                             }
                             currentUid = -1;
                             currentComponent = null;
@@ -689,13 +700,30 @@ public class RegisteredServicesCache {
             }
         } catch (Exception e) {
             Log.e(TAG, "Could not parse dynamic AIDs file, trashing.", e);
-            mDynamicSettingsFile.delete();
+            settingsFile.delete();
         } finally {
             if (fis != null) {
                 try {
                     fis.close();
                 } catch (IOException e) {
                 }
+            }
+        }
+        return readSettingsMap;
+    }
+
+    private void readDynamicSettingsLocked() {
+        Map<Integer, List<Pair<ComponentName, DynamicSettings>>> readSettingsMap
+                = readDynamicSettingsFromFile(mDynamicSettingsFile);
+        for(Integer userId: readSettingsMap.keySet()) {
+            UserServices services = findOrCreateUserLocked(userId);
+            List<Pair<ComponentName, DynamicSettings>> componentNameDynamicServiceStatusPairs
+                    = readSettingsMap.get(userId);
+            int pairsSize = componentNameDynamicServiceStatusPairs.size();
+            for(int i = 0; i < pairsSize; i++) {
+                Pair<ComponentName, DynamicSettings> pair
+                        = componentNameDynamicServiceStatusPairs.get(i);
+                services.dynamicSettings.put(pair.first, pair.second);
             }
         }
     }

@@ -53,7 +53,6 @@ import android.os.HandlerExecutor;
 import android.os.PowerManager;
 import android.os.UserManager;
 import android.os.test.TestLooper;
-import android.telephony.TelephonyManager;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -97,7 +96,6 @@ public final class NfcServiceTest {
     @Mock ContentResolver mContentResolver;
     @Mock Bundle mUserRestrictions;
     @Mock BackupManager mBackupManager;
-    @Mock TelephonyManager mTelephonyManager;
     @Mock AlarmManager mAlarmManager;
     @Captor ArgumentCaptor<DeviceHost.DeviceHostListener> mDeviceHostListener;
     @Captor ArgumentCaptor<BroadcastReceiver> mGlobalReceiver;
@@ -128,7 +126,6 @@ public final class NfcServiceTest {
         when(mApplication.getSystemService(ActivityManager.class)).thenReturn(mActivityManager);
         when(mApplication.getSystemService(KeyguardManager.class)).thenReturn(mKeyguardManager);
         when(mApplication.getSystemService(AlarmManager.class)).thenReturn(mAlarmManager);
-        when(mApplication.getSystemService(TelephonyManager.class)).thenReturn(mTelephonyManager);
         when(mApplication.getPackageManager()).thenReturn(mPackageManager);
         when(mApplication.getResources()).thenReturn(mResources);
         when(mApplication.createContextAsUser(any(), anyInt())).thenReturn(mApplication);
@@ -188,45 +185,6 @@ public final class NfcServiceTest {
         disableAndVerify();
     }
 
-
-    @Test
-    public void testSimStateChange() throws Exception {
-        when(mResources.getBoolean(R.bool.restart_on_sim_change)).thenReturn(true);
-        when(mTelephonyManager.getSimApplicationState())
-            .thenReturn(TelephonyManager.SIM_STATE_LOADED);
-        createNfcService();
-
-        enableAndVerify();
-        Intent intent = new Intent(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)
-                .putExtra(TelephonyManager.EXTRA_SIM_STATE, TelephonyManager.SIM_STATE_LOADED);
-        mGlobalReceiver.getValue().onReceive(mApplication, intent);
-        mLooper.dispatchAll();
-        verify(mDeviceHost).deinitialize();
-        verify(mDeviceHost).initialize();
-
-        enableAndVerify();
-        intent = new Intent(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED)
-                .putExtra(TelephonyManager.EXTRA_SIM_STATE, TelephonyManager.SIM_STATE_ABSENT);
-        mGlobalReceiver.getValue().onReceive(mApplication, intent);
-        mLooper.dispatchAll();
-        verify(mDeviceHost).deinitialize();
-        verify(mDeviceHost).initialize();
-    }
-
-    @Test
-    public void testSimStateChangeWhenNfcIsDisabled() throws Exception {
-        when(mResources.getBoolean(R.bool.restart_on_sim_change)).thenReturn(true);
-        when(mTelephonyManager.getSimApplicationState())
-            .thenReturn(TelephonyManager.SIM_STATE_LOADED);
-        createNfcService();
-
-        Intent intent = new Intent(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)
-                .putExtra(TelephonyManager.EXTRA_SIM_STATE, TelephonyManager.SIM_STATE_ABSENT);
-        mGlobalReceiver.getValue().onReceive(mApplication, intent);
-        mLooper.dispatchAll();
-        verifyNoMoreInteractions(mDeviceHost);
-    }
-
     @Test
     public void testBootupWithNfcOn() throws Exception {
         when(mPreferences.getBoolean(eq(PREF_NFC_ON), anyBoolean())).thenReturn(true);
@@ -240,36 +198,28 @@ public final class NfcServiceTest {
     }
 
     @Test
-    public void testBootupWithNfcOn_WhenSimStateAbsent() throws Exception {
-        when(mResources.getBoolean(R.bool.restart_on_sim_change)).thenReturn(true);
-        when(mTelephonyManager.getSimApplicationState())
-            .thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+    public void testBootupWithNfcOn_WhenOemExtensionEnabled() throws Exception {
+        when(mResources.getBoolean(R.bool.enable_oem_extension)).thenReturn(true);
         createNfcService();
 
         verifyNoMoreInteractions(mDeviceHost);
     }
 
     @Test
-    public void testBootupWithNfcOn_WhenSimStateAbsent_ThenLoaded() throws Exception {
+    public void testBootupWithNfcOn_WhenOemExtensionEnabled_ThenAllowBoot() throws Exception {
         when(mPreferences.getBoolean(eq(PREF_NFC_ON), anyBoolean())).thenReturn(true);
-        when(mResources.getBoolean(R.bool.restart_on_sim_change)).thenReturn(true);
-        when(mTelephonyManager.getSimApplicationState())
-            .thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+        when(mResources.getBoolean(R.bool.enable_oem_extension)).thenReturn(true);
         createNfcService();
 
-        Intent intent = new Intent(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)
-                .putExtra(TelephonyManager.EXTRA_SIM_STATE, TelephonyManager.SIM_STATE_LOADED);
-        mGlobalReceiver.getValue().onReceive(mApplication, intent);
+        mNfcService.mNfcAdapter.allowBoot();
         mLooper.dispatchAll();
         verify(mDeviceHost).initialize();
     }
 
     @Test
-    public void testBootupWithNfcOn_WhenSimStateAbsent_ThenTimeout() throws Exception {
+    public void testBootupWithNfcOn_WhenOemExtensionEnabled_ThenTimeout() throws Exception {
         when(mPreferences.getBoolean(eq(PREF_NFC_ON), anyBoolean())).thenReturn(true);
-        when(mResources.getBoolean(R.bool.restart_on_sim_change)).thenReturn(true);
-        when(mTelephonyManager.getSimApplicationState())
-            .thenReturn(TelephonyManager.SIM_STATE_ABSENT);
+        when(mResources.getBoolean(R.bool.enable_oem_extension)).thenReturn(true);
         createNfcService();
         verify(mAlarmManager).setExact(
                 anyInt(), anyLong(), anyString(), mAlarmListener.capture(), any());

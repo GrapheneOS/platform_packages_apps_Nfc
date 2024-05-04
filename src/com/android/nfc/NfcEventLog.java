@@ -58,7 +58,7 @@ public final class NfcEventLog {
         mContext = context;
         mNfcInjector = nfcInjector;
         mMaxEventNum = context.getResources().getInteger(R.integer.max_event_log_num);
-        mEventList = new ArrayDeque<NfcEventProto.Event>(mMaxEventNum);
+        mEventList = new ArrayDeque<>(0);
         mHander = new Handler(looper);
         mLogFile = logFile;
         mHander.post(() -> readListFromLogFile());

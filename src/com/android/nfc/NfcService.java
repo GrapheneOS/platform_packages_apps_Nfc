@@ -95,7 +95,6 @@ import android.provider.Settings;
 import android.provider.Settings.SettingNotFoundException;
 import android.se.omapi.ISecureElementService;
 import android.sysprop.NfcProperties;
-import android.telephony.TelephonyManager;
 import android.util.EventLog;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
@@ -178,9 +177,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     static final String NATIVE_LOG_FILE_NAME = "native_crash_logs";
     static final String NATIVE_LOG_FILE_PATH = "/data/misc/nfc/logs";
     static final int NATIVE_CRASH_FILE_SIZE = 1024 * 1024;
-    private static final String WAIT_FOR_SIM_LOADED_TIMER_TAG = "NfcWaitForSimTag";
+    private static final String WAIT_FOR_OEM_ALLOW_BOOT_TIMER_TAG = "NfcWaitForSimTag";
     @VisibleForTesting
-    public static final int WAIT_FOR_SIM_LOADED_TIMEOUT_MS = 5_000;
+    public static final int WAIT_FOR_OEM_ALLOW_BOOT_TIMEOUT_MS = 5_000;
 
     static final int MSG_NDEF_TAG = 0;
     // Previously used: MSG_LLCP_LINK_ACTIVATION = 1
@@ -639,10 +638,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         filter.addAction(Intent.ACTION_USER_PRESENT);
         filter.addAction(Intent.ACTION_USER_SWITCHED);
         filter.addAction(Intent.ACTION_USER_ADDED);
-        if (mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) {
-            filter.addAction(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED);
-            filter.addAction(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED);
-        }
         mContext.registerReceiverForAllUsers(mReceiver, filter, null, null);
     }
 
@@ -879,19 +874,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private boolean mDelayedBootAlarmListenerSet = false;
 
     private void executeTaskBoot() {
-        // If overlay is set, delay the NFC boot up until sim is ready.
-        if (mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) {
-            TelephonyManager telephonyManager = mContext.getSystemService(TelephonyManager.class);
-            int simState = telephonyManager.getSimApplicationState();
-            if (simState != TelephonyManager.SIM_STATE_LOADED) {
-                Log.i(TAG, "SIM not loaded, delaying boot");
-                mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
-                        mNfcInjector.getElapsedSinceBootMillis() + WAIT_FOR_SIM_LOADED_TIMEOUT_MS,
-                        WAIT_FOR_SIM_LOADED_TIMER_TAG, mDelayedBootAlarmListener, mHandler);
-                mDelayedBootAlarmListenerSet = true;
-                return;
-            }
-
+        // If overlay is set, delay the NFC boot up until the OEM extension indicates it is ready to
+        // proceed with NFC bootup.
+        if (mContext.getResources().getBoolean(R.bool.enable_oem_extension)) {
+            mAlarmManager.setExact(AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                    mNfcInjector.getElapsedSinceBootMillis() + WAIT_FOR_OEM_ALLOW_BOOT_TIMEOUT_MS,
+                    WAIT_FOR_OEM_ALLOW_BOOT_TIMER_TAG, mDelayedBootAlarmListener, mHandler);
+            mDelayedBootAlarmListenerSet = true;
+            return;
         }
         new EnableDisableTask().execute(TASK_BOOT);
     }
@@ -2501,6 +2491,17 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             if (DBG) Log.i(TAG, "clearPreference");
             NfcPermissions.enforceAdminPermissions(mContext);
             // TODO: Implement this.
+        }
+
+        // TODO(b/321304762): Add the OEM extension API.
+        public void allowBoot() throws RemoteException {
+            if (DBG) Log.i(TAG, "allowBoot");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            if (mDelayedBootAlarmListenerSet) {
+                Log.i(TAG, "OEM executing delayed boot");
+                mAlarmManager.cancel(mDelayedBootAlarmListener);
+                mDelayedBootAlarmListener.onAlarm();
+            }
         }
 
         private synchronized void sendVendorNciResponse(int gid, int oid, byte[] payload) {
@@ -4179,26 +4180,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     new NfcDeveloperOptionNotification(mContext.createContextAsUser(
                             UserHandle.of(ActivityManager.getCurrentUser()), /*flags=*/0))
                             .startNotification();
-                }
-            } else if (action.equals(TelephonyManager.ACTION_SIM_CARD_STATE_CHANGED) ||
-                    action.equals(TelephonyManager.ACTION_SIM_APPLICATION_STATE_CHANGED)) {
-                if (!mContext.getResources().getBoolean(R.bool.restart_on_sim_change)) return;
-                int state = intent.getIntExtra(TelephonyManager.EXTRA_SIM_STATE,
-                        TelephonyManager.SIM_STATE_UNKNOWN);
-                if (state == TelephonyManager.SIM_STATE_LOADED && mDelayedBootAlarmListenerSet) {
-                    Log.i(TAG, "SIM loaded, executing delayed boot");
-                    mAlarmManager.cancel(mDelayedBootAlarmListener);
-                    mDelayedBootAlarmListener.onAlarm();
-                    return;
-                }
-                // Use |SIM_STATE_ABSENT| for detecting sim removal
-                // Use |SIM_STATE_LOADED| for detecting sim insertion and ready.
-                if (state == TelephonyManager.SIM_STATE_ABSENT
-                        || state == TelephonyManager.SIM_STATE_LOADED) {
-                    if (isNfcEnabled()) {
-                        Log.w(TAG, "Restarting NFC stack on SIM state change, SIM_STATE: " + state);
-                        restartStack();
-                    }
                 }
             }
         }
