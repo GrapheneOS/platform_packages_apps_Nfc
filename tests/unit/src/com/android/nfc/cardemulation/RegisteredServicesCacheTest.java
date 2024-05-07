@@ -911,6 +911,194 @@ public class RegisteredServicesCacheTest {
         verify(apduServiceInfos.get(1)).removePollingLoopPatternFilter(eq(plFilter));
     }
 
+    @Test
+    public void testRegisterAidGroupForService_nonExistingService() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
+        AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_PAYMENT);
+
+        Assert.assertFalse(mRegisteredServicesCache.registerAidGroupForService(
+                USER_ID, SERVICE_UID, wrongComponentName, aidGroup));
+    }
+
+    @Test
+    public void testRegisterAidGroupForService_wrongUid() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_PAYMENT);
+
+        Assert.assertFalse(mRegisteredServicesCache.registerAidGroupForService(USER_ID,
+                3, WALLET_HOLDER_SERVICE_COMPONENT, aidGroup));
+    }
+
+    @Test
+    public void testRegisterAidGroupForService_existingService_correctUid() throws IOException {
+        InputStream dynamicSettingsIs = InstrumentationRegistry.getInstrumentation()
+                .getContext().getResources().getAssets()
+                .open(RegisteredServicesCache.AID_XML_PATH);
+        MockFileOutputStream mockFileOutputStream = new MockFileOutputStream();
+        when(mDynamicSettingsFile.exists()).thenReturn(true);
+        when(mDynamicSettingsFile.openRead()).thenReturn(dynamicSettingsIs);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
+        when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_OTHER);
+
+        Assert.assertTrue(mRegisteredServicesCache.registerAidGroupForService(USER_ID,
+                SERVICE_UID, WALLET_HOLDER_SERVICE_COMPONENT, aidGroup));
+
+        ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
+                WALLET_HOLDER_SERVICE_COMPONENT);
+        verify(serviceInfo).setDynamicAidGroup(eq(aidGroup));
+        Assert.assertEquals(aidGroup, mRegisteredServicesCache.mUserServices.get(USER_ID)
+                .dynamicSettings.get(WALLET_HOLDER_SERVICE_COMPONENT)
+                .aidGroups.get(CardEmulation.CATEGORY_OTHER));
+        // Verify that the callback is called with properly installed and filtered services.
+        verify(mCallback).onServicesUpdated(eq(USER_ID), mApduServiceListCaptor.capture(),
+                eq(true));
+        List<ApduServiceInfo> apduServiceInfos = mApduServiceListCaptor.getValue();
+        Assert.assertEquals(2, apduServiceInfos.size());
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, apduServiceInfos.get(0)
+                .getComponent());
+        Assert.assertEquals(WALLET_HOLDER_SERVICE_COMPONENT, apduServiceInfos.get(1)
+                .getComponent());
+        // Verify that dynamic settings file is updated
+        InputStream dynamicSettingsMockIs = mockFileOutputStream.toInputStream();
+        RegisteredServicesCache.SettingsFile dynamicSettingsFile
+                = Mockito.mock(RegisteredServicesCache.SettingsFile.class);
+        when(dynamicSettingsFile.openRead()).thenReturn(dynamicSettingsMockIs);
+        when(dynamicSettingsFile.exists()).thenReturn(true);
+        Map<Integer, List<Pair<ComponentName, RegisteredServicesCache.DynamicSettings>>>
+                readDynamicSettingsFromFile = RegisteredServicesCache
+                .readDynamicSettingsFromFile(dynamicSettingsFile);
+        Assert.assertFalse(readDynamicSettingsFromFile.isEmpty());
+        Assert.assertTrue(readDynamicSettingsFromFile.containsKey(USER_ID));
+        RegisteredServicesCache.DynamicSettings dynamicSettings
+                = readDynamicSettingsFromFile.get(USER_ID).get(0).second;
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT,
+                readDynamicSettingsFromFile.get(USER_ID).get(0).first);
+        Assert.assertTrue(dynamicSettings.aidGroups.containsKey(CardEmulation.CATEGORY_OTHER));
+        Assert.assertEquals(aidGroup.getAids(),
+                dynamicSettings.aidGroups.get(CardEmulation.CATEGORY_OTHER).getAids());
+    }
+
+    @Test
+    public void testGetAidGroupForService_nonExistingService() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
+
+        Assert.assertNull(mRegisteredServicesCache.getAidGroupForService(
+                USER_ID, SERVICE_UID, wrongComponentName, CardEmulation.CATEGORY_PAYMENT));
+    }
+
+    @Test
+    public void testGetAidGroupForService_wrongUid() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        Assert.assertNull(mRegisteredServicesCache.getAidGroupForService(USER_ID,
+                3, WALLET_HOLDER_SERVICE_COMPONENT, CardEmulation.CATEGORY_PAYMENT));
+    }
+
+    @Test
+    public void testGetAidGroupForService_existingService_correctUid() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
+                WALLET_HOLDER_SERVICE_COMPONENT);
+        AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_OTHER);
+        when(serviceInfo.getDynamicAidGroupForCategory(eq(CardEmulation.CATEGORY_OTHER)))
+                .thenReturn(aidGroup);
+
+        AidGroup aidGroupReceived = mRegisteredServicesCache.getAidGroupForService(USER_ID,
+                SERVICE_UID, WALLET_HOLDER_SERVICE_COMPONENT, CardEmulation.CATEGORY_OTHER);
+        Assert.assertEquals(aidGroup, aidGroupReceived);
+    }
+
+    @Test
+    public void testRemoveAidGroupForService_nonExistingService() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
+
+        Assert.assertFalse(mRegisteredServicesCache.removeAidGroupForService(
+                USER_ID, SERVICE_UID, wrongComponentName, CardEmulation.CATEGORY_PAYMENT));
+    }
+
+    @Test
+    public void testRemoveAidGroupForService_wrongUid() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+
+        Assert.assertFalse(mRegisteredServicesCache.removeAidGroupForService(USER_ID,
+                3, WALLET_HOLDER_SERVICE_COMPONENT, CardEmulation.CATEGORY_PAYMENT));
+    }
+
+    @Test
+    public void testRemoveAidGroupForService_existingService_correctUid() throws IOException {
+        InputStream dynamicSettingsIs = InstrumentationRegistry.getInstrumentation()
+                .getContext().getResources().getAssets()
+                .open(RegisteredServicesCache.AID_XML_PATH);
+        MockFileOutputStream mockFileOutputStream = new MockFileOutputStream();
+        when(mDynamicSettingsFile.exists()).thenReturn(true);
+        when(mDynamicSettingsFile.openRead()).thenReturn(dynamicSettingsIs);
+        when(mOtherSettingsFile.exists()).thenReturn(false);
+        when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
+        when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+        mRegisteredServicesCache.initialize();
+        ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
+                WALLET_HOLDER_SERVICE_COMPONENT);
+        when(serviceInfo.removeDynamicAidGroupForCategory(eq(CardEmulation.CATEGORY_PAYMENT)))
+                .thenReturn(true);
+
+        Assert.assertTrue(mRegisteredServicesCache.removeAidGroupForService(USER_ID,
+                SERVICE_UID, WALLET_HOLDER_SERVICE_COMPONENT, CardEmulation.CATEGORY_PAYMENT));
+
+        verify(serviceInfo).removeDynamicAidGroupForCategory(eq(CardEmulation.CATEGORY_PAYMENT));
+        Assert.assertFalse(mRegisteredServicesCache.mUserServices.get(USER_ID)
+                .dynamicSettings.get(WALLET_HOLDER_SERVICE_COMPONENT)
+                .aidGroups.containsKey(CardEmulation.CATEGORY_PAYMENT));
+        // Verify that the callback is called with properly installed and filtered services.
+        verify(mCallback).onServicesUpdated(eq(USER_ID), mApduServiceListCaptor.capture(),
+                eq(true));
+        List<ApduServiceInfo> apduServiceInfos = mApduServiceListCaptor.getValue();
+        Assert.assertEquals(2, apduServiceInfos.size());
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT, apduServiceInfos.get(0)
+                .getComponent());
+        Assert.assertEquals(WALLET_HOLDER_SERVICE_COMPONENT, apduServiceInfos.get(1)
+                .getComponent());
+        // Verify that dynamic settings file is updated
+        InputStream dynamicSettingsMockIs = mockFileOutputStream.toInputStream();
+        RegisteredServicesCache.SettingsFile dynamicSettingsFile
+                = Mockito.mock(RegisteredServicesCache.SettingsFile.class);
+        when(dynamicSettingsFile.openRead()).thenReturn(dynamicSettingsMockIs);
+        when(dynamicSettingsFile.exists()).thenReturn(true);
+        Map<Integer, List<Pair<ComponentName, RegisteredServicesCache.DynamicSettings>>>
+                readDynamicSettingsFromFile = RegisteredServicesCache
+                .readDynamicSettingsFromFile(dynamicSettingsFile);
+        Assert.assertFalse(readDynamicSettingsFromFile.isEmpty());
+        Assert.assertTrue(readDynamicSettingsFromFile.containsKey(USER_ID));
+        RegisteredServicesCache.DynamicSettings dynamicSettings
+                = readDynamicSettingsFromFile.get(USER_ID).get(0).second;
+        Assert.assertEquals(ANOTHER_SERVICE_COMPONENT,
+                readDynamicSettingsFromFile.get(USER_ID).get(0).first);
+        Assert.assertFalse(dynamicSettings.aidGroups.containsKey(CardEmulation.CATEGORY_PAYMENT));
+    }
+
     private class MockFileOutputStream extends FileOutputStream {
 
         ByteArrayOutputStream mByteOutputStream;
@@ -963,10 +1151,8 @@ public class RegisteredServicesCacheTest {
         if (!categories.isEmpty()) {
             for(String category : categories) {
                when(apduServiceInfo.hasCategory(category)).thenReturn(true);
-               AidGroup aidGroup = new AidGroup(category.equals(
-                       CardEmulation.CATEGORY_PAYMENT) ? PAYMENT_AIDS : NON_PAYMENT_AID, category);
                when(apduServiceInfo.getDynamicAidGroupForCategory(eq(category)))
-                       .thenReturn(aidGroup);
+                       .thenReturn(createAidGroup(category));
             }
         }
         mMappedServices.put(className, apduServiceInfo);
@@ -978,5 +1164,10 @@ public class RegisteredServicesCacheTest {
         resolveInfo.serviceInfo.packageName = packageName;
         resolveInfo.serviceInfo.name = className;
         return resolveInfo;
+    }
+
+    private static AidGroup createAidGroup(String category) {
+        return new AidGroup(category.equals(
+                CardEmulation.CATEGORY_PAYMENT) ? PAYMENT_AIDS : NON_PAYMENT_AID, category);
     }
 }

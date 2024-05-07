@@ -2465,8 +2465,7 @@ static jbyteArray nfcManager_getProprietaryCaps(JNIEnv* e, jobject o) {
                    NCI_ANDROID_GET_CAPS};
   SyncEventGuard guard(gNfaVsCommand);
 
-  tNFA_STATUS status =
-      NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaSendRawVsCmdCallback);
+  tNFA_STATUS status = NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaVSCallback);
   if (status == NFA_STATUS_OK) {
     gNfaVsCommand.wait();
   } else {
