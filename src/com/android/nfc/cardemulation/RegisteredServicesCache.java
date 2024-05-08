@@ -105,6 +105,7 @@ public class RegisteredServicesCache {
     final SettingsFile mDynamicSettingsFile;
     final SettingsFile mOthersFile;
     final ServiceParser mServiceParser;
+    final RoutingOptionManager mRoutingOptionManager;
 
     public interface Callback {
         /**
@@ -221,15 +222,26 @@ public class RegisteredServicesCache {
 
     public RegisteredServicesCache(Context context, Callback callback) {
         this(context, callback, new SettingsFile(context, AID_XML_PATH),
-                new SettingsFile(context, OTHER_STATUS_PATH), new RealServiceParser());
+                new SettingsFile(context, OTHER_STATUS_PATH), new RealServiceParser(),
+                RoutingOptionManager.getInstance());
+    }
+
+    @VisibleForTesting
+    RegisteredServicesCache(Context context, Callback callback,
+                                   RoutingOptionManager routingOptionManager) {
+        this(context, callback, new SettingsFile(context, AID_XML_PATH),
+                new SettingsFile(context, OTHER_STATUS_PATH), new RealServiceParser(),
+                routingOptionManager);
     }
 
     @VisibleForTesting
     RegisteredServicesCache(Context context, Callback callback, SettingsFile dynamicSettings,
-                            SettingsFile otherSettings, ServiceParser serviceParser) {
+                            SettingsFile otherSettings, ServiceParser serviceParser,
+                            RoutingOptionManager routingOptionManager) {
         mContext = context;
         mCallback = callback;
         mServiceParser = serviceParser;
+        mRoutingOptionManager = routingOptionManager;
 
         refreshUserProfilesLocked();
 
@@ -240,7 +252,7 @@ public class RegisteredServicesCache {
                 String action = intent.getAction();
                 if (VDBG) Log.d(TAG, "Intent action: " + action);
 
-                if (RoutingOptionManager.getInstance().isRoutingTableOverrided()) {
+                if (mRoutingOptionManager.isRoutingTableOverrided()) {
                     if (DEBUG) Log.d(TAG, "Routing table overrided. Skip invalidateCache()");
                 }
                 if (uid == -1) return;
@@ -251,7 +263,9 @@ public class RegisteredServicesCache {
                     if (VDBG) Log.d(TAG, "Ignoring package change intent from non-current user");
                     return;
                 }
-                if (!Utils.hasCeServicesWithValidPermissions(mContext, intent, userId)) {
+                // If app not removed, check if the app has any valid CE services.
+                if (!Intent.ACTION_PACKAGE_REMOVED.equals(action) &&
+                        !Utils.hasCeServicesWithValidPermissions(mContext, intent, userId)) {
                     if (VDBG) Log.d(TAG, "Ignoring package change intent from non-CE app");
                     return;
                 }

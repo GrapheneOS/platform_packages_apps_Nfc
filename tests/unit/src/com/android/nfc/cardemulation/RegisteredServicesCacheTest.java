@@ -16,9 +16,12 @@
 
 package com.android.nfc.cardemulation;
 
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -126,6 +129,8 @@ public class RegisteredServicesCacheTest {
     private RegisteredServicesCache.SettingsFile mOtherSettingsFile;
     @Mock
     private RegisteredServicesCache.ServiceParser mServiceParser;
+    @Mock
+    private RoutingOptionManager mRoutingOptionManager;
     @Captor
     private ArgumentCaptor<BroadcastReceiver> mReceiverArgumentCaptor;
     @Captor
@@ -179,6 +184,7 @@ public class RegisteredServicesCacheTest {
         when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
         when(mUserManager.isQuietModeEnabled(eq(USER_HANDLE))).thenReturn(false);
         when(mUserManager.isQuietModeEnabled(eq(USER_HANDLE_QUITE_MODE))).thenReturn(true);
+        when(mUserManager.getProfileParent(eq(USER_HANDLE))).thenReturn(USER_HANDLE);
         List<ResolveInfo> onHostServicesList = new ArrayList<>();
         onHostServicesList.add(createServiceResolveInfo(true,
                 WALLET_HOLDER_PACKAGE_NAME, ON_HOST_SERVICE_NAME,
@@ -222,13 +228,14 @@ public class RegisteredServicesCacheTest {
     @SuppressWarnings({"UnspecifiedRegisterReceiverFlag", "GuardedBy"})
     @Test
     public void testConstructor() {
-        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback);
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mRoutingOptionManager);
 
         // Verify that the users handles are populated correctly
         Assert.assertEquals(1, mRegisteredServicesCache.mUserHandles.size());
         Assert.assertEquals(mRegisteredServicesCache.mUserHandles.get(0), USER_HANDLE);
         // Verify that broadcast receivers for apk changes are created and registered properly
-        Assert.assertNotNull(mRegisteredServicesCache.mReceiver.get());
+        assertNotNull(mRegisteredServicesCache.mReceiver.get());
         verify(mContext).createContextAsUser(eq(USER_HANDLE), eq(0));
         verify(mContext, times(2)).registerReceiverForAllUsers(
                 mReceiverArgumentCaptor.capture(), mIntentFilterArgumentCaptor.capture(),
@@ -279,7 +286,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(true);
         when(mOtherSettingsFile.exists()).thenReturn(true);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
 
         mRegisteredServicesCache.initialize();
 
@@ -372,7 +379,7 @@ public class RegisteredServicesCacheTest {
         when(mOtherSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
 
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         // Verify that files are NOT read
@@ -427,7 +434,7 @@ public class RegisteredServicesCacheTest {
         // Do not trigger user switch in constructor. Send empty list.
         when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         enabledProfiles.add(USER_HANDLE);
         enabledProfiles.add(USER_HANDLE_QUITE_MODE);
         when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
@@ -446,7 +453,7 @@ public class RegisteredServicesCacheTest {
         // Do not trigger user switch in constructor. Send empty list.
         when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         enabledProfiles.add(USER_HANDLE);
         enabledProfiles.add(USER_HANDLE_QUITE_MODE);
         when(mUserManager.getEnabledProfiles()).thenReturn(enabledProfiles);
@@ -463,7 +470,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(false);
         when(mOtherSettingsFile.exists()).thenReturn(false);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertTrue(mRegisteredServicesCache.hasService(USER_ID, ANOTHER_SERVICE_COMPONENT));
@@ -476,7 +483,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(false);
         when(mOtherSettingsFile.exists()).thenReturn(false);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
@@ -490,7 +497,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(false);
         when(mOtherSettingsFile.exists()).thenReturn(false);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache.getServices(USER_ID);
@@ -505,7 +512,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(false);
         when(mOtherSettingsFile.exists()).thenReturn(false);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache
@@ -520,7 +527,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(false);
         when(mOtherSettingsFile.exists()).thenReturn(false);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         List<ApduServiceInfo> serviceInfos = mRegisteredServicesCache
@@ -533,7 +540,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testSetOffhostSecureElement_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -544,7 +551,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testSetOffhostSecureElement_wrongServiceUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.setOffHostSecureElement(USER_ID,
@@ -554,7 +561,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testSetOffhostSecureElement_nullOffHostSet() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.setOffHostSecureElement(USER_ID,
@@ -574,7 +581,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
         when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         String newOffHostValue = "newOffhostValue";
 
@@ -617,7 +624,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testResetOffhostSecureElement_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -628,7 +635,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testResetOffhostSecureElement_wrongServiceUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.resetOffHostSecureElement(USER_ID,
@@ -638,7 +645,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testResetOffhostSecureElement_nullOffHostSet() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.resetOffHostSecureElement(USER_ID,
@@ -658,7 +665,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
         when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         when(mRegisteredServicesCache.getService(USER_ID, ANOTHER_SERVICE_COMPONENT)
                 .getOffHostSecureElement()).thenReturn("offhost");
@@ -696,13 +703,13 @@ public class RegisteredServicesCacheTest {
                 = readDynamicSettingsFromFile.get(USER_ID).get(0).second;
         Assert.assertEquals(ANOTHER_SERVICE_COMPONENT,
                 readDynamicSettingsFromFile.get(USER_ID).get(0).first);
-        Assert.assertNull(dynamicSettings.offHostSE);
+        assertNull(dynamicSettings.offHostSE);
     }
 
     @Test
     public void testSetShouldDefaultToObserveModeForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -713,7 +720,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testSetShouldDefaultToObserveModeForService_wrongServiceUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.setShouldDefaultToObserveModeForService(USER_ID,
@@ -729,7 +736,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.exists()).thenReturn(true);
         when(mDynamicSettingsFile.openRead()).thenReturn(dynamicSettingsIs);
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertTrue(mRegisteredServicesCache.setShouldDefaultToObserveModeForService(USER_ID,
@@ -744,7 +751,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopFilterForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -755,7 +762,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopFilterForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.registerPollingLoopFilterForService(USER_ID,
@@ -765,7 +772,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopFilterForService_existingService_correctUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         String plFilter = "afilter";
 
@@ -786,7 +793,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopFilterForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -797,7 +804,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopFilterForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.removePollingLoopFilterForService(USER_ID,
@@ -807,7 +814,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopFilterForService_existingService_correctUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         String plFilter = "afilter";
 
@@ -828,7 +835,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopPatternFilterForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -840,7 +847,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopPatterFilterForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache
@@ -851,7 +858,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterPollingLoopPatternFilterForService_existingService_correctUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         String plFilter = "afilter";
 
@@ -872,7 +879,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopPatternFilterForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -883,7 +890,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopPatternFilterForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.removePollingLoopFilterForService(USER_ID,
@@ -893,7 +900,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemovePollingLoopPatternFilterForService_existingService_correctUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         String plFilter = "afilter";
 
@@ -914,7 +921,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterAidGroupForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
         AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_PAYMENT);
@@ -926,7 +933,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRegisterAidGroupForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_PAYMENT);
 
@@ -946,7 +953,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
         when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         AidGroup aidGroup = createAidGroup(CardEmulation.CATEGORY_OTHER);
 
@@ -991,28 +998,28 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testGetAidGroupForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
-        Assert.assertNull(mRegisteredServicesCache.getAidGroupForService(
+        assertNull(mRegisteredServicesCache.getAidGroupForService(
                 USER_ID, SERVICE_UID, wrongComponentName, CardEmulation.CATEGORY_PAYMENT));
     }
 
     @Test
     public void testGetAidGroupForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
-        Assert.assertNull(mRegisteredServicesCache.getAidGroupForService(USER_ID,
+        assertNull(mRegisteredServicesCache.getAidGroupForService(USER_ID,
                 3, WALLET_HOLDER_SERVICE_COMPONENT, CardEmulation.CATEGORY_PAYMENT));
     }
 
     @Test
     public void testGetAidGroupForService_existingService_correctUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
                 WALLET_HOLDER_SERVICE_COMPONENT);
@@ -1028,7 +1035,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemoveAidGroupForService_nonExistingService() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ComponentName wrongComponentName = new ComponentName("test","com.wrong.class");
 
@@ -1039,7 +1046,7 @@ public class RegisteredServicesCacheTest {
     @Test
     public void testRemoveAidGroupForService_wrongUid() {
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
 
         Assert.assertFalse(mRegisteredServicesCache.removeAidGroupForService(USER_ID,
@@ -1058,7 +1065,7 @@ public class RegisteredServicesCacheTest {
         when(mDynamicSettingsFile.startWrite()).thenReturn(mockFileOutputStream);
         when(mOtherSettingsFile.startWrite()).thenReturn(new MockFileOutputStream());
         mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
-                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser);
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
         mRegisteredServicesCache.initialize();
         ApduServiceInfo serviceInfo = mRegisteredServicesCache.getService(USER_ID,
                 WALLET_HOLDER_SERVICE_COMPONENT);
@@ -1097,6 +1104,25 @@ public class RegisteredServicesCacheTest {
         Assert.assertEquals(ANOTHER_SERVICE_COMPONENT,
                 readDynamicSettingsFromFile.get(USER_ID).get(0).first);
         Assert.assertFalse(dynamicSettings.aidGroups.containsKey(CardEmulation.CATEGORY_PAYMENT));
+    }
+    @Test
+    public void testHandlePackageRemoved() {
+        mRegisteredServicesCache = new RegisteredServicesCache(mContext, mCallback,
+                mDynamicSettingsFile, mOtherSettingsFile, mServiceParser, mRoutingOptionManager);
+        verify(mContext).registerReceiverForAllUsers(
+                mReceiverArgumentCaptor.capture(),
+                argThat(intent -> intent.hasAction(Intent.ACTION_PACKAGE_ADDED)),
+                eq(null), eq(null));
+        mRegisteredServicesCache.initialize();
+        assertNotNull(mRegisteredServicesCache.getService(USER_ID, WALLET_HOLDER_SERVICE_COMPONENT));
+
+        Intent intent = new Intent(Intent.ACTION_PACKAGE_REMOVED);
+        intent.putExtra(Intent.EXTRA_UID, USER_ID);
+        // return empty list
+        Mockito.reset(mPackageManager);
+        when(mPackageManager.queryIntentServicesAsUser(any(), any(), any())).thenReturn(List.of());
+        mReceiverArgumentCaptor.getValue().onReceive(mContext, intent);
+        assertNull(mRegisteredServicesCache.getService(USER_ID, WALLET_HOLDER_SERVICE_COMPONENT));
     }
 
     private class MockFileOutputStream extends FileOutputStream {

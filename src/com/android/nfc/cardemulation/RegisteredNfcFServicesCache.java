@@ -164,7 +164,9 @@ public class RegisteredNfcFServicesCache {
                     if (VDBG) Log.d(TAG, "Ignoring package change intent from non-current user");
                     return;
                 }
-                if (!Utils.hasCeServicesWithValidPermissions(mContext, intent, userId)) {
+                // If app not removed, check if the app has any valid CE services.
+                if (!Intent.ACTION_PACKAGE_REMOVED.equals(action) &&
+                        !Utils.hasCeServicesWithValidPermissions(mContext, intent, userId)) {
                     if (VDBG) Log.d(TAG, "Ignoring package change intent from non-CE app");
                     return;
                 }
