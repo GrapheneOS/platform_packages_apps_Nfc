@@ -1240,7 +1240,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
             synchronized (NfcService.this) {
                 mObjectMap.clear();
-
                 updateState(NfcAdapter.STATE_ON);
 
                 onPreferredPaymentChanged(NfcAdapter.PREFERRED_PAYMENT_LOADED);
@@ -1629,6 +1628,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean isObserveModeSupported() {
+            if (!isNfcEnabled()) {
+                Log.e(TAG, "isObserveModeSupported: NFC must be enabled but is: " + mState);
+                return false;
+            }
             long token = Binder.clearCallingIdentity();
             try {
                 if (!android.nfc.Flags.nfcObserveMode()) {
@@ -1642,12 +1645,20 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public synchronized boolean isObserveModeEnabled() {
+            if (!isNfcEnabled()) {
+                Log.e(TAG, "isObserveModeEnabled: NFC must be enabled but is: " + mState);
+                return false;
+            }
             NfcPermissions.enforceUserPermissions(mContext);
             return mDeviceHost.isObserveModeEnabled();
         }
 
         @Override
         public synchronized boolean setObserveMode(boolean enable) {
+            if (!isNfcEnabled()) {
+                Log.e(TAG, "setObserveMode: NFC must be enabled but is: " + mState);
+                return false;
+            }
             int callingUid = Binder.getCallingUid();
             int triggerSource =
                     NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__TRIGGER_SOURCE_UNKNOWN;

@@ -71,6 +71,11 @@ android_app {
         "framework-res",
     ],
     jni_libs: ["libnfc_nci_jni"],
+    required: [
+        // Provide a default libnfc-nci.conf in /system/etc for devices that
+        // does not ship one in /product
+        "libnfc-nci.conf-default",
+    ],
 }
 
 // NCI Configuration embedded in NFC apex.

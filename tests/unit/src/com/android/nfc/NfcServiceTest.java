@@ -44,6 +44,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.nfc.NfcAdapter;
 import android.nfc.NfcServiceManager;
 import android.nfc.tech.Ndef;
 import android.os.AsyncTask;
@@ -60,6 +61,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -227,5 +229,26 @@ public final class NfcServiceTest {
         mAlarmListener.getValue().onAlarm();
         mLooper.dispatchAll();
         verify(mDeviceHost).initialize();
+    }
+
+    @Test
+    public void testSetObserveMode_nfcDisabled() throws Exception {
+        mNfcService.mNfcAdapter.disable(true, PKG_NAME);
+
+        Assert.assertFalse(mNfcService.mNfcAdapter.setObserveMode(true));
+    }
+
+    @Test
+    public void testIsObserveModeEnabled_nfcDisabled() throws Exception {
+        mNfcService.mNfcAdapter.disable(true, PKG_NAME);
+
+        Assert.assertFalse(mNfcService.mNfcAdapter.isObserveModeEnabled());
+    }
+
+    @Test
+    public void testIsObserveModeSupported_nfcDisabled() throws Exception {
+        mNfcService.mNfcAdapter.disable(true, PKG_NAME);
+
+        Assert.assertFalse(mNfcService.mNfcAdapter.isObserveModeSupported());
     }
 }
