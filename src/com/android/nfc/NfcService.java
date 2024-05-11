@@ -1221,7 +1221,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         return false;
                     }
                 } finally {
-                    mRoutingWakeLock.release();
+                    if (mRoutingWakeLock.isHeld()) {
+                        mRoutingWakeLock.release();
+                    }
                 }
             } finally {
                 watchDog.cancel();
