@@ -4173,6 +4173,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 int userId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
                 mUserId = userId;
                 updatePackageCache();
+                if (DBG) Log.d(TAG, action + " received with UserId: " + userId);
                 if (mIsHceCapable) {
                     mCardEmulationManager.onUserSwitched(getUserId());
                 }
@@ -4217,6 +4218,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     action.equals(Intent.ACTION_MANAGED_PROFILE_AVAILABLE) ||
                     action.equals(Intent.ACTION_MANAGED_PROFILE_REMOVED) ||
                     action.equals(Intent.ACTION_MANAGED_PROFILE_UNAVAILABLE)) {
+                if (DBG) Log.d(TAG, action + " received with UserId: " + user.getIdentifier());
                 mCardEmulationManager.onManagedProfileChanged();
                 setPaymentForegroundPreference(user.getIdentifier());
             }

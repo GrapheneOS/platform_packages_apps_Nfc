@@ -18,7 +18,6 @@ package com.android.nfc;
 
 import static android.content.pm.PackageManager.GET_META_DATA;
 import static android.content.pm.PackageManager.MATCH_CLONE_PROFILE;
-import static android.content.pm.PackageManager.MATCH_DEFAULT_ONLY;
 
 import android.app.ActivityManager;
 import android.content.BroadcastReceiver;
@@ -181,7 +180,6 @@ public class RegisteredComponentCache {
         ArrayList<ComponentInfo> components = new ArrayList<ComponentInfo>();
         List<ResolveInfo> resolveInfos = pm.queryIntentActivitiesAsUser(new Intent(mAction),
                 ResolveInfoFlags.of(GET_META_DATA
-                        | MATCH_DEFAULT_ONLY
                         | MATCH_CLONE_PROFILE),
                 UserHandle.of(ActivityManager.getCurrentUser()));
         for (ResolveInfo resolveInfo : resolveInfos) {

@@ -246,7 +246,9 @@ public class RegisteredServicesCache {
         mServiceParser = serviceParser;
         mRoutingOptionManager = routingOptionManager;
 
-        refreshUserProfilesLocked();
+        synchronized (mLock) {
+            refreshUserProfilesLocked(false);
+        }
 
         final BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
@@ -322,17 +324,17 @@ public class RegisteredServicesCache {
 
     public void onUserSwitched() {
         synchronized (mLock) {
-            refreshUserProfilesLocked();
+            refreshUserProfilesLocked(false);
         }
     }
 
     public void onManagedProfileChanged() {
         synchronized (mLock) {
-            refreshUserProfilesLocked();
+            refreshUserProfilesLocked(true);
         }
     }
 
-    private void refreshUserProfilesLocked() {
+    private void refreshUserProfilesLocked(boolean invalidateCache) {
         UserManager um = mContext.createContextAsUser(
                 UserHandle.of(ActivityManager.getCurrentUser()), /*flags=*/0)
                 .getSystemService(UserManager.class);
@@ -345,6 +347,11 @@ public class RegisteredServicesCache {
             }
         }
         mUserHandles.removeAll(removeUserHandles);
+        if (invalidateCache) {
+            for (UserHandle uh : mUserHandles) {
+                invalidateCache(uh.getIdentifier(), false);
+            }
+        }
     }
 
     void dump(List<ApduServiceInfo> services) {
