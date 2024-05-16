@@ -304,7 +304,7 @@ public class HostEmulationManager {
             if (service == null) {
                 if (mActiveService != null) {
                         service = mActiveService;
-                } else if (mPendingPollingLoopFrames.size() >= 4) {
+                } else if (mPendingPollingLoopFrames.size() >= 3) {
                     loop_on_off: for (PollingFrame frame : mPendingPollingLoopFrames) {
                         int type = frame.getType();
                         switch (type) {
