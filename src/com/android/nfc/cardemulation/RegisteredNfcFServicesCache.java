@@ -791,7 +791,7 @@ public class RegisteredNfcFServicesCache {
                 for (UserHandle uh : mUserHandles) {
                     UserManager um = mContext.createContextAsUser(
                             uh, /*flags=*/0).getSystemService(UserManager.class);
-                    pw.println("User " + um.getUserName() + " : ");
+                    pw.println("User " + Utils.maskSubstring(um.getUserName(), 3));
                     UserServices userServices = findOrCreateUserLocked(uh.getIdentifier());
                     for (NfcFServiceInfo service : userServices.services.values()) {
                         service.dump(pFd, pw, args);

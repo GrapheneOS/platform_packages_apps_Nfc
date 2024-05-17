@@ -186,4 +186,18 @@ public final class Utils {
             return false;
         }
     }
+
+    public static String maskSubstring(String original, int start) {
+        if (original == null) {
+            return "";
+        }
+        if (original.length() <= start) {
+            return original;
+        }
+        StringBuilder masked = new StringBuilder(original);
+        for (int i = start; i < original.length(); i++) {
+            masked.setCharAt(i, '*');
+        }
+        return masked.toString();
+    }
 }

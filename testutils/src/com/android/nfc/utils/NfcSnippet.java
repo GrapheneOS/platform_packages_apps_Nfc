@@ -1,6 +1,6 @@
 
 /*
- * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2024 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,9 @@ package com.android.nfc.utils;
 
 import static android.content.Context.RECEIVER_EXPORTED;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
 import android.content.IntentFilter;
 
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -29,8 +31,13 @@ import com.google.android.mobly.snippet.event.SnippetEvent;
 
 import com.google.android.mobly.snippet.rpc.AsyncRpc;
 import com.google.android.mobly.snippet.rpc.Rpc;
+
+import android.nfc.NfcAdapter;
 import android.util.Log;
 import android.os.RemoteException;
+
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 public abstract class NfcSnippet implements Snippet {
     protected static final String TAG = "NfcSnippet";
@@ -67,6 +74,38 @@ public abstract class NfcSnippet implements Snippet {
     @Rpc(description = "Log info level message to device logcat")
     public void logInfo(String message) {
         Log.i(TAG, message);
+    }
+
+    /** Toggle NFC state */
+    @Rpc(description = "Blocking call to toggle NFC state")
+    public void setNfcState(boolean enable) throws InterruptedException {
+        NfcAdapter nfcAdapter = NfcAdapter.getDefaultAdapter(mContext);
+        int expectedState = enable ? NfcAdapter.STATE_ON : NfcAdapter.STATE_OFF;
+        if (nfcAdapter.getAdapterState() == expectedState) {
+            Log.i(TAG, "toggleNfc: Already in expected state: " + expectedState);
+            return;
+        }
+        CountDownLatch countDownLatch = new CountDownLatch(1);
+        IntentFilter intentFilter = new IntentFilter(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
+        final BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if (NfcAdapter.ACTION_ADAPTER_STATE_CHANGED.equals(intent.getAction())) {
+                    int state = intent.getIntExtra(NfcAdapter.EXTRA_ADAPTER_STATE,
+                            NfcAdapter.STATE_OFF);
+                    if (expectedState == state) countDownLatch.countDown();
+                }
+            }
+        };
+        mContext.registerReceiver(receiver, intentFilter);
+        if (enable) {
+            nfcAdapter.enable();
+        } else {
+            nfcAdapter.disable();
+        }
+        if (!countDownLatch.await(5, TimeUnit.SECONDS)) {
+            throw  new IllegalStateException("Waiting for NFC state change failed");
+        }
     }
 
     /** Creates a SnippetBroadcastReceiver that listens for when the specified action is received */

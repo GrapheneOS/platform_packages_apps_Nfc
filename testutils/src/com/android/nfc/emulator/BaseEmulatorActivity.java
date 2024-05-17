@@ -63,7 +63,7 @@ public abstract class BaseEmulatorActivity extends Activity {
     public static final String ACTION_ROLE_HELD = PACKAGE_NAME + ".ACTION_ROLE_HELD";
 
     // Intent action that's sent after the test condition is met.
-    protected static final String ACTION_TEST_PASSED = PACKAGE_NAME + ".ACTION_ROLE_HELD";
+    protected static final String ACTION_TEST_PASSED = PACKAGE_NAME + ".ACTION_TEST_PASSED";
     protected static final ArrayList<ComponentName> SERVICES =
             new ArrayList<>(
                     List.of(
