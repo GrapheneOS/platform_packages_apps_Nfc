@@ -18,16 +18,14 @@ package com.android.nfc.emulator;
 
 import android.app.Instrumentation;
 import android.content.Intent;
-import android.os.RemoteException;
+import android.nfc.NfcAdapter;
 import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
-import androidx.test.uiautomator.UiDevice;
 import androidx.test.uiautomator.UiObject;
 import androidx.test.uiautomator.UiObjectNotFoundException;
 import androidx.test.uiautomator.UiScrollable;
 import androidx.test.uiautomator.UiSelector;
-import android.nfc.NfcAdapter;
 
 import com.android.nfc.utils.NfcSnippet;
 
@@ -462,6 +460,14 @@ public class NfcEmulatorDeviceSnippet extends NfcSnippet {
     public void closeActivity() {
         if (mActivity != null) {
             mActivity.finish();
+        }
+    }
+
+    /** Wait for preferred service to be set */
+    @Rpc(description = "Waits for preferred service to be set")
+    public void waitForService() {
+        if (mActivity != null) {
+            mActivity.waitForService();
         }
     }
 

@@ -15,10 +15,12 @@
  */
 package com.android.nfc.emulator;
 
+import android.content.ComponentName;
 import android.os.Bundle;
 import android.util.Log;
 
 import com.android.nfc.service.ScreenOnOnlyOffHostService;
+import com.android.nfc.service.TransportService2;
 
 public class ScreenOnOnlyOffHostEmulatorActivity extends BaseEmulatorActivity {
     protected static final String TAG = "ScreenOnOnlyOffHost";
@@ -27,6 +29,11 @@ public class ScreenOnOnlyOffHostEmulatorActivity extends BaseEmulatorActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setupServices(ScreenOnOnlyOffHostService.COMPONENT);
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return ScreenOnOnlyOffHostService.COMPONENT;
     }
 
     @Override

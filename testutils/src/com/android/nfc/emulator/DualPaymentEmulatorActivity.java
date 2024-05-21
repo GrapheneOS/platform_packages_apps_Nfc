@@ -60,4 +60,9 @@ public class DualPaymentEmulatorActivity extends BaseEmulatorActivity {
             setTestPassed();
         }
     }
+
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return PaymentService1.COMPONENT;
+    }
 }

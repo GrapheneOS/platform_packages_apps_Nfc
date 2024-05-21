@@ -44,4 +44,9 @@ public class DualNonPaymentEmulatorActivity extends BaseEmulatorActivity {
             setTestPassed();
         }
     }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return TransportService2.COMPONENT;
+    }
 }

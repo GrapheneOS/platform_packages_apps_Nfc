@@ -53,4 +53,10 @@ public class ForegroundPaymentEmulatorActivity extends BaseEmulatorActivity {
             setTestPassed();
         }
     }
+
+    /* Gets preferred service description */
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return PaymentService2.COMPONENT;
+    }
 }

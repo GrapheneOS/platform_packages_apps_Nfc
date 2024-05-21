@@ -20,6 +20,7 @@ import android.nfc.cardemulation.CardEmulation;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.nfc.service.TransportService2;
 import com.android.nfc.utils.HceUtils;
 import com.android.nfc.service.PrefixAccessService;
 import com.android.nfc.service.PrefixTransportService1;
@@ -71,5 +72,10 @@ public class DualNonPaymentPrefixEmulatorActivity extends BaseEmulatorActivity {
         if (component.equals(PrefixAccessService.COMPONENT)) {
             setTestPassed();
         }
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return PrefixAccessService.COMPONENT;
     }
 }

@@ -19,8 +19,8 @@ import android.content.ComponentName;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.Bundle;
 
-import com.android.nfc.utils.HceUtils;
 import com.android.nfc.service.PaymentServiceDynamicAids;
+import com.android.nfc.utils.HceUtils;
 
 import java.util.ArrayList;
 
@@ -44,7 +44,6 @@ public class DynamicAidEmulatorActivity extends BaseEmulatorActivity {
         paymentAids.add(HceUtils.VISA_AID);
         // Register a different set of AIDs for the foreground
         mCardEmulation.registerAidsForService(
-
                 PaymentServiceDynamicAids.COMPONENT,
                 CardEmulation.CATEGORY_PAYMENT,
                 paymentAids);
@@ -56,5 +55,10 @@ public class DynamicAidEmulatorActivity extends BaseEmulatorActivity {
         if (component.equals(PaymentServiceDynamicAids.COMPONENT)) {
             setTestPassed();
         }
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return PaymentServiceDynamicAids.COMPONENT;
     }
 }

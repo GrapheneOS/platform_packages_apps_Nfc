@@ -39,6 +39,11 @@ public class ThroughputEmulatorActivity extends BaseEmulatorActivity {
     }
 
     @Override
+    public ComponentName getPreferredServiceComponent(){
+        return ThroughputService.COMPONENT;
+    }
+
+    @Override
     public void onApduSequenceComplete(ComponentName component, long duration) {
         if (component.equals(ThroughputService.COMPONENT)) {
             if (duration < 1000) {

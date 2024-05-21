@@ -18,9 +18,8 @@ package com.android.nfc.emulator;
 import android.content.ComponentName;
 import android.os.Bundle;
 
-import com.android.nfc.service.PollingLoopService;
 import com.android.nfc.service.OffHostService;
-import android.util.Log;
+import com.android.nfc.service.PollingLoopService;
 
 public class OffHostEmulatorActivity extends BaseEmulatorActivity {
     public static final String EXTRA_ENABLE_OBSERVE_MODE = "EXTRA_ENABLE_OBSERVE_MODE";
@@ -53,7 +52,7 @@ public class OffHostEmulatorActivity extends BaseEmulatorActivity {
     }
 
     @Override
-    public String getPreferredServiceDescription() {
-        return getResources().getString(R.string.accessService);
+    public ComponentName getPreferredServiceComponent() {
+        return PollingLoopService.COMPONENT;
     }
 }

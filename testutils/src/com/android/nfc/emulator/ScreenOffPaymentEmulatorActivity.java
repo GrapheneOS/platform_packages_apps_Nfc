@@ -23,8 +23,8 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.android.nfc.utils.HceUtils;
 import com.android.nfc.service.ScreenOffPaymentService;
+import com.android.nfc.utils.HceUtils;
 
 public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
     private static final String TAG = "ScreenOffPaymentEm";
@@ -72,6 +72,11 @@ public class ScreenOffPaymentEmulatorActivity extends BaseEmulatorActivity {
                 && mState == STATE_SCREEN_OFF) {
             setTestPassed();
         }
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return ScreenOffPaymentService.COMPONENT;
     }
 
     private class ScreenOnOffReceiver extends BroadcastReceiver {

@@ -18,6 +18,7 @@ package com.android.nfc.emulator;
 import android.content.ComponentName;
 import android.os.Bundle;
 
+import com.android.nfc.service.ScreenOnOnlyOffHostService;
 import com.android.nfc.service.TransportService1;
 
 public class SingleNonPaymentEmulatorActivity extends BaseEmulatorActivity {
@@ -43,6 +44,11 @@ public class SingleNonPaymentEmulatorActivity extends BaseEmulatorActivity {
     protected void onServicesSetup() {
         mCardEmulation.setPreferredService(
                 this, TransportService1.COMPONENT);
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return TransportService1.COMPONENT;
     }
 
     @Override

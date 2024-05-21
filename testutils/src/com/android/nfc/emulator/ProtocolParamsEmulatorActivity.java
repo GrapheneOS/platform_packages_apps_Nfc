@@ -15,4 +15,13 @@
  */
 package com.android.nfc.emulator;
 
-public class ProtocolParamsEmulatorActivity extends BaseEmulatorActivity {}
+import android.content.ComponentName;
+
+import com.android.nfc.service.AccessService;
+
+public class ProtocolParamsEmulatorActivity extends BaseEmulatorActivity {
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return null;
+    }
+}

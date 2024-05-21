@@ -54,4 +54,9 @@ public class ConflictingNonPaymentPrefixEmulatorActivity extends BaseEmulatorAct
             setTestPassed();
         }
     }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return PrefixTransportService2.COMPONENT;
+    }
 }

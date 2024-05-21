@@ -235,7 +235,7 @@ public final class NfcServiceTest {
     public void testSetObserveMode_nfcDisabled() throws Exception {
         mNfcService.mNfcAdapter.disable(true, PKG_NAME);
 
-        Assert.assertFalse(mNfcService.mNfcAdapter.setObserveMode(true));
+        Assert.assertFalse(mNfcService.mNfcAdapter.setObserveMode(true, null));
     }
 
     @Test

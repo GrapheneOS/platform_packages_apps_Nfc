@@ -19,6 +19,7 @@ import android.content.ComponentName;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.Bundle;
 
+import com.android.nfc.service.TransportService2;
 import com.android.nfc.utils.HceUtils;
 import com.android.nfc.service.LargeNumAidsService;
 
@@ -62,5 +63,10 @@ public class LargeNumAidsEmulatorActivity extends BaseEmulatorActivity {
     protected void onPause() {
         super.onPause();
         mCardEmulation.unsetPreferredService(this);
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return LargeNumAidsService.COMPONENT;
     }
 }

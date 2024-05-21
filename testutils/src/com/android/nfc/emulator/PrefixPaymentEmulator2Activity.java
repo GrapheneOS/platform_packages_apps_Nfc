@@ -51,4 +51,10 @@ public class PrefixPaymentEmulator2Activity extends BaseEmulatorActivity {
             setTestPassed();
         }
     }
+
+    /* Gets preferred service description */
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return PrefixPaymentService1.COMPONENT;
+    }
 }

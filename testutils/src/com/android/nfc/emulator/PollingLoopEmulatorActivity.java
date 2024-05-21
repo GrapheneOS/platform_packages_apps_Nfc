@@ -106,8 +106,8 @@ public class PollingLoopEmulatorActivity extends BaseEmulatorActivity {
     }
 
     @Override
-    public String getPreferredServiceDescription() {
-        return getResources().getString(R.string.accessService);
+    public ComponentName getPreferredServiceComponent() {
+        return PollingLoopService.COMPONENT;
     }
 
     void processPollingFrames(List<PollingFrame> frames) {

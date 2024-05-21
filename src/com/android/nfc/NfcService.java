@@ -1656,7 +1656,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         @Override
-        public synchronized boolean setObserveMode(boolean enable) {
+        public synchronized boolean setObserveMode(boolean enable, String packageName) {
             if (!isNfcEnabled()) {
                 Log.e(TAG, "setObserveMode: NFC must be enabled but is: " + mState);
                 return false;
@@ -1666,7 +1666,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__TRIGGER_SOURCE_UNKNOWN;
             if (!isPrivileged(callingUid)) {
                 NfcPermissions.enforceUserPermissions(mContext);
-                String packageName = getPackageNameFromUid(callingUid);
                 if (packageName == null) {
                     Log.e(TAG, "no package name associated with non-privileged calling UID");
                 }

@@ -20,6 +20,7 @@ import android.os.Bundle;
 
 import com.android.nfc.service.OffHostService;
 import com.android.nfc.service.TransportService1;
+import com.android.nfc.service.TransportService2;
 
 public class OnAndOffHostEmulatorActivity extends BaseEmulatorActivity {
     @Override
@@ -30,4 +31,9 @@ public class OnAndOffHostEmulatorActivity extends BaseEmulatorActivity {
 
     @Override
     public void onApduSequenceComplete(ComponentName component, long duration) {}
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return TransportService1.COMPONENT;
+    }
 }

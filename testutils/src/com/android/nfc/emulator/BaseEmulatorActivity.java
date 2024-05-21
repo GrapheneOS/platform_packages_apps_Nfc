@@ -22,18 +22,18 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.nfc.NfcAdapter;
-import android.nfc.cardemulation.CardEmulation;
-import android.os.Bundle;
-import android.util.Log;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
+import android.content.res.XmlResourceParser;
+import android.nfc.NfcAdapter;
+import android.nfc.cardemulation.CardEmulation;
+import android.nfc.cardemulation.HostApduService;
+import android.os.Bundle;
+import android.util.AttributeSet;
+import android.util.Log;
+import android.util.Xml;
 
 import com.android.compatibility.common.util.CommonTestUtils;
-import android.content.pm.PackageInfo;
-import android.content.pm.ServiceInfo;
-
-import com.android.nfc.utils.HceUtils;
 import com.android.nfc.service.AccessService;
 import com.android.nfc.service.HceService;
 import com.android.nfc.service.LargeNumAidsService;
@@ -41,6 +41,7 @@ import com.android.nfc.service.OffHostService;
 import com.android.nfc.service.PaymentService1;
 import com.android.nfc.service.PaymentService2;
 import com.android.nfc.service.PaymentServiceDynamicAids;
+import com.android.nfc.service.PollingLoopService;
 import com.android.nfc.service.PrefixAccessService;
 import com.android.nfc.service.PrefixPaymentService1;
 import com.android.nfc.service.PrefixPaymentService2;
@@ -51,8 +52,11 @@ import com.android.nfc.service.ScreenOnOnlyOffHostService;
 import com.android.nfc.service.ThroughputService;
 import com.android.nfc.service.TransportService1;
 import com.android.nfc.service.TransportService2;
-import com.android.nfc.service.PollingLoopService;
+import com.android.nfc.utils.HceUtils;
 
+import org.xmlpull.v1.XmlPullParserException;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -138,10 +142,52 @@ public abstract class BaseEmulatorActivity extends Activity {
 
     /* Gets preferred service description */
     public String getPreferredServiceDescription() {
+        try {
+            Bundle data =
+                    getPackageManager()
+                            .getServiceInfo(
+                                    getPreferredServiceComponent(), PackageManager.GET_META_DATA)
+                            .metaData;
+            XmlResourceParser xrp =
+                    getResources().getXml(data.getInt(HostApduService.SERVICE_META_DATA));
+            boolean parsing = true;
+            while (parsing) {
+                try {
+                    switch (xrp.next()) {
+                        case XmlResourceParser.END_DOCUMENT:
+                            parsing = false;
+                            break;
+                        case XmlResourceParser.START_TAG:
+                            if (xrp.getName().equals("host-apdu-service")) {
+                                AttributeSet set = Xml.asAttributeSet(xrp);
+                                int resId =
+                                        set.getAttributeResourceValue(
+                                                "http://schemas.android.com/apk/res/android",
+                                                "description",
+                                                -1);
+                                if (resId != -1) {
+                                    return getResources().getString(resId);
+                                }
+                                return "";
+                            }
+                            break;
+                        default:
+                            break;
+                    }
+                } catch (XmlPullParserException | IOException e) {
+                    Log.d(TAG, "error: " + e.toString());
+                    throw new IllegalStateException(
+                            "Resource parsing failed. This shouldn't happen.", e);
+                }
+            }
+        } catch (NameNotFoundException e) {
+            Log.w(TAG, "NameNotFoundException. Test will probably fail.");
+        }
         return "";
     }
 
     void ensurePreferredService(String serviceDesc, Context context, CardEmulation cardEmulation) {
+        Log.d(TAG, "ensurePreferredService: " + serviceDesc);
         try {
             CommonTestUtils.waitUntil("Default service hasn't updated", 6,
                     () -> serviceDesc.equals(
@@ -156,6 +202,13 @@ public abstract class BaseEmulatorActivity extends Activity {
         ensurePreferredService(getPreferredServiceDescription(), this, mCardEmulation);
         return mAdapter.setObserveModeEnabled(enable);
     }
+
+    /** Waits for preferred service to be set, and sends broadcast afterwards. */
+    public void waitForService() {
+        ensurePreferredService(getPreferredServiceDescription(), this, mCardEmulation);
+    }
+
+    public abstract ComponentName getPreferredServiceComponent();
 
     public boolean isObserveModeEnabled() {
         return mAdapter.isObserveModeEnabled();

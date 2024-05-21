@@ -103,7 +103,7 @@ public class NfcShellCommand extends BasicShellCommandHandler {
                     return 0;
                 case "set-observe-mode":
                     boolean enable = getNextArgRequiredTrueOrFalse("enable", "disable");
-                    mNfcService.mNfcAdapter.setObserveMode(enable);
+                    mNfcService.mNfcAdapter.setObserveMode(enable, mContext.getPackageName());
                     return 0;
                 default:
                     return handleDefaultCommands(cmd);

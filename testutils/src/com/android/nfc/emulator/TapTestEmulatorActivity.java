@@ -20,6 +20,7 @@ import android.content.ComponentName;
 import android.os.Bundle;
 import android.util.Log;
 
+import com.android.nfc.service.ScreenOnOnlyOffHostService;
 import com.android.nfc.service.TransportService1;
 
 public class TapTestEmulatorActivity extends BaseEmulatorActivity {
@@ -43,5 +44,10 @@ public class TapTestEmulatorActivity extends BaseEmulatorActivity {
         if (component.equals(TransportService1.COMPONENT)) {
             setTestPassed();
         }
+    }
+
+    @Override
+    public ComponentName getPreferredServiceComponent(){
+        return TransportService1.COMPONENT;
     }
 }

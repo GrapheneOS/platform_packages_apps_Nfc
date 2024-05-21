@@ -42,4 +42,9 @@ public class SinglePaymentEmulatorActivity extends BaseEmulatorActivity {
             setTestPassed();
         }
     }
+
+    @Override
+    public ComponentName getPreferredServiceComponent() {
+        return PaymentService1.COMPONENT;
+    }
 }
