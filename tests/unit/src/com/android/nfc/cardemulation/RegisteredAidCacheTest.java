@@ -112,8 +112,8 @@ public class RegisteredAidCacheTest {
                 .mockStatic(ActivityManager.class)
                 .mockStatic(NfcService.class)
                 .strictness(Strictness.LENIENT)
+                .initMocks(this)
                 .startMocking();
-        MockitoAnnotations.initMocks(this);
         when(ActivityManager.getCurrentUser()).thenReturn(USER_ID);
         when(NfcService.getInstance()).thenReturn(mNfcService);
         when(mNfcService.getNciVersion()).thenReturn(NfcService.NCI_VERSION_1_0);
