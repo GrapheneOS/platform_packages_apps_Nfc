@@ -2472,7 +2472,12 @@ static jbyteArray nfcManager_getProprietaryCaps(JNIEnv* e, jobject o) {
 
   tNFA_STATUS status = NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaVSCallback);
   if (status == NFA_STATUS_OK) {
-    gNfaVsCommand.wait();
+    if (!gNfaVsCommand.wait(1000)) {
+      LOG(ERROR) << StringPrintf(
+          "%s: Timed out waiting for a response to get caps ",
+          __FUNCTION__);
+      gVSCmdStatus = NFA_STATUS_FAILED;
+    }
   } else {
     LOG(ERROR) << StringPrintf("%s: Failed to get caps", __func__);
     gVSCmdStatus = NFA_STATUS_FAILED;

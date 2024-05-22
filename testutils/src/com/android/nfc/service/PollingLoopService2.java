@@ -27,25 +27,25 @@ import android.content.ComponentName;
 import java.util.ArrayList;
 import java.util.List;
 
-public class PollingLoopService extends HceService {
+public class PollingLoopService2 extends HceService {
     public static final ComponentName COMPONENT =
             new ComponentName(
-                    "com.android.nfc.emulator", PollingLoopService.class.getName());
+                    "com.android.nfc.emulator", PollingLoopService2.class.getName());
 
     public static final String POLLING_FRAME_ACTION =
            "com.android.nfc.service.POLLING_FRAME_ACTION";
     public static final String POLLING_FRAME_EXTRA = "POLLING_FRAME_EXTRA";
     public static final String SERVICE_NAME_EXTRA = "SERVICE_NAME_EXTRA";
-    public static final String TAG = "PollingLoopService";
+    public static final String TAG = "PollingLoopService2";
 
-    public PollingLoopService() {
+    public PollingLoopService2() {
         super(
                 HceUtils.COMMAND_APDUS_BY_SERVICE.get(PollingLoopService.class.getName()),
                 HceUtils.RESPONSE_APDUS_BY_SERVICE.get(PollingLoopService.class.getName()));
     }
     @Override
     public ComponentName getComponent() {
-        return PollingLoopService.COMPONENT;
+        return PollingLoopService2.COMPONENT;
     }
 
     @Override

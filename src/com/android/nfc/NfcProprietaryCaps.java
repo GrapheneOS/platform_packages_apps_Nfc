@@ -104,4 +104,18 @@ public class NfcProprietaryCaps {
         return new NfcProprietaryCaps(passiveObserveMode, isPollingFrameNotificationSupported,
                 isPowerSavingModeSupported, isAutotransactPollingLoopFilterSupported);
     }
+
+    @Override
+    public String toString() {
+        return "NfcProprietaryCaps{"
+                + "passiveObserveMode="
+                + mPassiveObserveMode
+                + ", isPollingFrameNotificationSupported="
+                + mIsPollingFrameNotificationSupported
+                + ", isPowerSavingModeSupported="
+                + mIsPowerSavingModeSupported
+                + ", isAutotransactPollingLoopFilterSupported="
+                + mIsAutotransactPollingLoopFilterSupported
+                + '}';
+    }
 }

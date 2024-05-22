@@ -100,6 +100,7 @@ public class NativeNfcManager implements DeviceHost {
         if (mContext.getResources().getBoolean(
                 com.android.nfc.R.bool.nfc_proprietary_getcaps_supported)) {
             mProprietaryCaps = NfcProprietaryCaps.createFromByteArray(getProprietaryCaps());
+            Log.i(TAG, "mProprietaryCaps: " + mProprietaryCaps);
             logProprietaryCaps(mProprietaryCaps);
         }
         mIsoDepMaxTransceiveLength = getIsoDepMaxTransceiveLength();
@@ -173,9 +174,17 @@ public class NativeNfcManager implements DeviceHost {
         if (!android.nfc.Flags.nfcObserveMode()) {
             return false;
         }
-
-        return mContext.getResources().getBoolean(
-                com.android.nfc.R.bool.nfc_observe_mode_supported);
+        // Check if the device overlay and HAL capabilities indicate that observe
+        // mode is supported.
+        if (!mContext.getResources().getBoolean(
+                com.android.nfc.R.bool.nfc_observe_mode_supported)) {
+            return false;
+        }
+        if (mContext.getResources().getBoolean(
+                com.android.nfc.R.bool.nfc_proprietary_getcaps_supported)) {
+            return isObserveModeSupportedCaps(mProprietaryCaps);
+        }
+        return true;
     }
 
     @Override
@@ -505,16 +514,21 @@ public class NativeNfcManager implements DeviceHost {
     }
 
     /** wrappers for values */
-    private final int CAPS_OBSERVE_MODE_UNKNOWN =
+    private static final int CAPS_OBSERVE_MODE_UNKNOWN =
             NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__MODE_UNKNOWN;
-    private final int CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION =
+    private static final int CAPS_OBSERVE_MODE_SUPPORT_WITH_RF_DEACTIVATION =
           NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITH_RF_DEACTIVATION;
-    private final int CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION =
+    private static final int CAPS_OBSERVE_MODE_SUPPORT_WITHOUT_RF_DEACTIVATION =
        NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__SUPPORT_WITHOUT_RF_DEACTIVATION;
-    private final int CAPS_OBSERVE_MODE_NOT_SUPPORTED =
+    private static final int CAPS_OBSERVE_MODE_NOT_SUPPORTED =
             NfcStatsLog.NFC_PROPRIETARY_CAPABILITIES_REPORTED__PASSIVE_OBSERVE_MODE__NOT_SUPPORTED;
 
-    private void logProprietaryCaps(NfcProprietaryCaps proprietaryCaps) {
+    private static boolean isObserveModeSupportedCaps(NfcProprietaryCaps proprietaryCaps) {
+        return proprietaryCaps.getPassiveObserveMode()
+            != NfcProprietaryCaps.PassiveObserveMode.NOT_SUPPORTED;
+    }
+
+    private static void logProprietaryCaps(NfcProprietaryCaps proprietaryCaps) {
         int observeModeStatsd = CAPS_OBSERVE_MODE_UNKNOWN;
 
         NfcProprietaryCaps.PassiveObserveMode mode = proprietaryCaps.getPassiveObserveMode();

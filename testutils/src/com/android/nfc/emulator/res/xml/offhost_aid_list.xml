@@ -6,6 +6,5 @@
         <!-- NXP card manager AID -->
         <aid-filter android:name="A000000003000000"/>
     </aid-group>
-    <polling-loop-filter android:name="*" />
     <polling-loop-filter android:name="41fbc7b9" android:autoTransact="true"/>
 </offhost-apdu-service>

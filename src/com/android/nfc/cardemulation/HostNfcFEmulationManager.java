@@ -42,6 +42,7 @@ import com.android.nfc.flags.Flags;
 
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import androidx.annotation.VisibleForTesting;
 
 public class HostNfcFEmulationManager {
     static final String TAG = "HostNfcFEmulationManager";
@@ -440,4 +441,12 @@ public class HostNfcFEmulationManager {
                     mServiceName, proto, HostNfcFEmulationManagerProto.SERVICE_NAME);
         }
     }
+    @VisibleForTesting
+    public String getEnabledFgServiceName() {
+        if (mEnabledFgServiceName != null) {
+            return mEnabledFgServiceName.getPackageName();
+        }
+        return null;
+    }
+
 }

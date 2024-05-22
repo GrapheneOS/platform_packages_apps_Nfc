@@ -41,6 +41,11 @@
             android:exported="true">
         </activity>
         <activity
+            android:name=".TwoPollingFrameEmulatorActivity"
+            android:label="Two Polling Frame Emulator"
+            android:exported="true">
+        </activity>
+        <activity
             android:name=".SingleNonPaymentEmulatorActivity"
             android:label="Single Non Payment Emulator"
             android:exported="true">
@@ -138,6 +143,15 @@
             android:exported="true">
         </activity>
         <service android:name="com.android.nfc.service.PollingLoopService" android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/access_aid_list"/>
+        </service>
+        <service android:name="com.android.nfc.service.PollingLoopService2" android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE"
             android:enabled="true">
             <intent-filter>

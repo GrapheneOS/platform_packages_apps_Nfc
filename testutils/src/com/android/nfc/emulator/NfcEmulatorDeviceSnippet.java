@@ -368,6 +368,19 @@ public class NfcEmulatorDeviceSnippet extends NfcSnippet {
         mActivity = (PollingLoopEmulatorActivity) instrumentation.startActivitySync(intent);
     }
 
+    @Rpc(description = "Open two polling frame emulator activity for two readers test\"")
+    public void startTwoPollingFrameEmulatorActivity() {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setClassName(
+                instrumentation.getTargetContext(),
+                TwoPollingFrameEmulatorActivity.class.getName());
+
+        mActivity = (TwoPollingFrameEmulatorActivity) instrumentation.startActivitySync(intent);
+    }
+
     /** Registers receiver that waits for RF field broadcast */
     @AsyncRpc(description = "Waits for RF field detected broadcast")
     public void asyncWaitForRfOnBroadcast(String callbackId, String eventName) {
