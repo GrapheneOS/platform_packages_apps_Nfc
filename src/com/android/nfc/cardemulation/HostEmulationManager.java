@@ -176,7 +176,10 @@ public class HostEmulationManager {
     public void onPreferredPaymentServiceChanged(int userId, final ComponentName service) {
         mHandler.post(() -> {
             synchronized (mLock) {
-                resetActiveService();
+                if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+                    Log.d(TAG, "onPreferredPaymentServiceChanged, resetting active service");
+                    resetActiveService();
+                }
                 if (service != null) {
                     bindPaymentServiceLocked(userId, service);
                 } else {
@@ -363,7 +366,10 @@ public class HostEmulationManager {
      */
     public void onPreferredForegroundServiceChanged(int userId, ComponentName service) {
         synchronized (mLock) {
-            resetActiveService();
+            if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+                Log.d(TAG, "onPreferredForegroundServiceChanged, resetting active service");
+                resetActiveService();
+            }
             if (service != null) {
                 bindServiceIfNeededLocked(userId, service);
             } else {

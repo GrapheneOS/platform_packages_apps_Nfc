@@ -3558,7 +3558,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     DeviceHost.TagDisconnectedCallback callback =
                             new DeviceHost.TagDisconnectedCallback() {
                                 @Override
-                                public void onTagDisconnected(long handle) {
+                                public void onTagDisconnected() {
                                     mCookieUpToDate = -1;
                                     applyRouting(false);
                                 }

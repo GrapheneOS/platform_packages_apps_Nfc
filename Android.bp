@@ -100,7 +100,7 @@ android_app {
         "framework-statsd.stubs.module_lib",
         "framework-wifi",
         "android.nfc.flags-aconfig-java",
-        "android.permission.flags-aconfig-java",
+        "android.permission.flags-aconfig-java-export",
         "android.service.chooser.flags-aconfig-java",
         "unsupportedappusage",
     ],

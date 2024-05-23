@@ -200,7 +200,7 @@ public class NfcCharging {
     DeviceHost.TagDisconnectedCallback callbackTagDisconnection =
             new DeviceHost.TagDisconnectedCallback() {
                 @Override
-                public void onTagDisconnected(long handle) {
+                public void onTagDisconnected() {
                     Log.d(TAG, "onTagDisconnected");
                     disconnectNfcCharging();
                     WLCState = STATE_2;
