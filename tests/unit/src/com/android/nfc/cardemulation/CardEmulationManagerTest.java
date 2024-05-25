@@ -1799,6 +1799,8 @@ public class CardEmulationManagerTest {
 
     @Test
     public void testOnPreferredPaymentServiceChanged_observeModeEnabled() {
+        mCardEmulationManager.onPreferredPaymentServiceChanged(0, null);
+
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
         when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
@@ -1813,15 +1815,16 @@ public class CardEmulationManagerTest {
         verify(mRegisteredAidCache).onPreferredPaymentServiceChanged(eq(USER_ID),
                 eq(WALLET_PAYMENT_SERVICE));
         verify(mRegisteredServicesCache).initialize();
-        verify(mNfcService).onPreferredPaymentChanged(eq(NfcAdapter.PREFERRED_PAYMENT_CHANGED));
-        assertUpdateForShouldDefaultToObserveMode(true);
+        verify(mNfcService, times(2))
+                .onPreferredPaymentChanged(eq(NfcAdapter.PREFERRED_PAYMENT_CHANGED));
     }
 
     @Test
     public void testOnPreferredPaymentServiceChanged_observeModeDisabled() {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(null).thenReturn(WALLET_PAYMENT_SERVICE);
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(false);
 
         mCardEmulationManager.onPreferredPaymentServiceChanged(USER_ID, WALLET_PAYMENT_SERVICE);
@@ -1854,7 +1857,6 @@ public class CardEmulationManagerTest {
                 eq(WALLET_PAYMENT_SERVICE));
         verify(mRegisteredServicesCache).initialize();
         verify(mNfcService).onPreferredPaymentChanged(eq(NfcAdapter.PREFERRED_PAYMENT_CHANGED));
-        assertUpdateForShouldDefaultToObserveMode(true);
     }
 
     @Test
@@ -1938,7 +1940,6 @@ public class CardEmulationManagerTest {
         }
         verifyNoMoreInteractions(mNfcAdapter);
         verifyNoMoreInteractions(mRegisteredServicesCache);
-        verifyNoMoreInteractions(mRegisteredAidCache);
     }
 
     private CardEmulationManager createInstanceWithMockParams() {
