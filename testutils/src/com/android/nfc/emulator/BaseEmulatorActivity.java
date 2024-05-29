@@ -208,6 +208,16 @@ public abstract class BaseEmulatorActivity extends Activity {
         ensurePreferredService(getPreferredServiceDescription(), this, mCardEmulation);
     }
 
+    void waitForObserveModeEnabled(boolean enabled) {
+        Log.d(TAG, "waitForObserveModeEnabled: " + enabled);
+        try {
+            CommonTestUtils.waitUntil("Observe mode has not been set", 6,
+                    () -> mAdapter.isObserveModeEnabled() == enabled);
+        } catch (InterruptedException ie) {
+            Log.w(TAG, "Observe mode not set to " + enabled + ". This may cause tests to fail");
+        }
+    }
+
     public abstract ComponentName getPreferredServiceComponent();
 
     public boolean isObserveModeEnabled() {

@@ -75,6 +75,8 @@ public class PollingLoopEmulatorActivity extends BaseEmulatorActivity {
 
         mCustomFrame = getIntent().getStringExtra(NFC_CUSTOM_FRAME_KEY);
         boolean isPreferredServiceSet = mCardEmulation.setPreferredService(this, serviceName);
+        waitForService();
+        waitForObserveModeEnabled(true);
 
         mNfcACount = 0;
         mNfcBCount = 0;

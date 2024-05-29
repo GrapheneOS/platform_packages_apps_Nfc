@@ -49,7 +49,7 @@ import org.junit.runner.RunWith;
 
 @RunWith(AndroidJUnit4.class)
 public class TapAgainDialogTest {
-  private static final int ALERT_DIALOG_ID = 16909366;
+  private static final int ALERT_DIALOG_ID = com.android.internal.R.id.parentPanel;
 
   @Test
   public void testOnCreate() throws Exception {

@@ -105,6 +105,10 @@ public class NfcShellCommand extends BasicShellCommandHandler {
                     boolean enable = getNextArgRequiredTrueOrFalse("enable", "disable");
                     mNfcService.mNfcAdapter.setObserveMode(enable, mContext.getPackageName());
                     return 0;
+                case "set-controller-always-on":
+                    boolean enableAlwaysOn = getNextArgRequiredTrueOrFalse("enable", "disable");
+                    mNfcService.mNfcAdapter.setControllerAlwaysOn(enableAlwaysOn);
+                    return 0;
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -155,6 +159,8 @@ public class NfcShellCommand extends BasicShellCommandHandler {
         pw.println("    Enable or disable observe mode.");
         pw.println("  set-reader-mode enable-polling|disable-polling");
         pw.println("    Enable or reader mode polling");
+        pw.println("  set-controller-always-on enable|disable");
+        pw.println("    Enable or disable controller always on");
     }
 
     @Override

@@ -1078,7 +1078,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             ComponentName preferredService = mAidCache.getPreferredService();
             boolean enableObserveMode = mServiceCache.doesServiceShouldDefaultToObserveMode(userId,
                     preferredService);
-            adapter.setObserveModeEnabled(enableObserveMode);
+            mHostEmulationManager.updateForShouldDefaultToObserveMode(enableObserveMode);
         } finally {
             Binder.restoreCallingIdentity(token);
         }

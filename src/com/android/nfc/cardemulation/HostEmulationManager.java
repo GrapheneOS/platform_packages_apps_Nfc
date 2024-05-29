@@ -207,6 +207,20 @@ public class HostEmulationManager {
     }
 
     @TargetApi(35)
+    @FlaggedApi(android.nfc.Flags.FLAG_NFC_OBSERVE_MODE)
+    public void updateForShouldDefaultToObserveMode(boolean enabled) {
+        synchronized (mLock) {
+            if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+                NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
+                mHandler.post(() -> adapter.setObserveModeEnabled(enabled));
+            } else {
+                mEnableObserveModeAfterTransaction = enabled;
+            }
+        }
+    }
+
+
+    @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public void updatePollingLoopFilters(int userId, List<ApduServiceInfo> services) {
         HashMap<String, List<ApduServiceInfo>> pollingLoopFilters =
@@ -559,7 +573,6 @@ public class HostEmulationManager {
                                 bindServiceIfNeededLocked(user.getIdentifier(), resolvedService);
                         if (existingService != null) {
                             Log.d(TAG, "Binding to existing service");
-                            mState = STATE_XFER;
                             sendDataToServiceLocked(existingService, data);
                         } else {
                             // Waiting for service to be bound
@@ -597,7 +610,6 @@ public class HostEmulationManager {
                                 bindServiceIfNeededLocked(user.getIdentifier(), resolvedService);
                         if (existingService != null) {
                             sendDataToServiceLocked(existingService, data);
-                            mState = STATE_XFER;
                         } else {
                             // Waiting for service to be bound
                             mSelectApdu = data;
@@ -701,6 +713,7 @@ public class HostEmulationManager {
     }
 
     void sendDataToServiceLocked(Messenger service, byte[] data) {
+        mState = STATE_XFER;
         if (service != mActiveService) {
             sendDeactivateToActiveServiceLocked(HostApduService.DEACTIVATION_DESELECTED);
             mActiveService = service;
@@ -906,7 +919,6 @@ public class HostEmulationManager {
                 mServiceName = name;
                 mServiceBound = true;
                 Log.d(TAG, "Service bound: " + name);
-                mState = STATE_XFER;
                 // Send pending select APDU
                 if (mSelectApdu != null) {
                     if (mStatsdUtils != null) {

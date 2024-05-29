@@ -1062,7 +1062,7 @@ public class HostEmulationManagerTest {
         Assert.assertEquals(mHostEmulationManager.mServiceName, WALLET_PAYMENT_SERVICE);
         Assert.assertNotNull(mHostEmulationManager.mService);
         Assert.assertTrue(mHostEmulationManager.mServiceBound);
-        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT, mHostEmulationManager.getState());
         Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
         verify(service).transact(eq(1), any(), eq(null), eq(1));
     }
