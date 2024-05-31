@@ -1057,12 +1057,10 @@ static jboolean nfcManager_isObserveModeEnabled(JNIEnv* e, jobject o) {
     return false;
   }
 
-  uint8_t cmd[] = {(NCI_MT_CMD << NCI_MT_SHIFT) | NCI_GID_PROP,
-                   NCI_MSG_PROP_ANDROID,
-                   NCI_QUERY_ANDROID_PASSIVE_OBSERVE_PARAM_SIZE,
-                   NCI_QUERY_ANDROID_PASSIVE_OBSERVE};
+  uint8_t cmd[] = {NCI_QUERY_ANDROID_PASSIVE_OBSERVE};
   SyncEventGuard guard(gNfaVsCommand);
-  tNFA_STATUS status = NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaVSCallback);
+  tNFA_STATUS status =
+      NFA_SendVsCommand(NCI_MSG_PROP_ANDROID, sizeof(cmd), cmd, nfaVSCallback);
 
   if (status == NFA_STATUS_OK) {
     if (!gNfaVsCommand.wait(1000)) {
@@ -1112,14 +1110,14 @@ static jboolean nfcManager_setObserveMode(JNIEnv* e, jobject o,
     reenbleDiscovery = true;
   }
   uint8_t cmd[] = {
-      (NCI_MT_CMD << NCI_MT_SHIFT) | NCI_GID_PROP, NCI_MSG_PROP_ANDROID,
-      NCI_ANDROID_PASSIVE_OBSERVE_PARAM_SIZE, NCI_ANDROID_PASSIVE_OBSERVE,
+      NCI_ANDROID_PASSIVE_OBSERVE,
       static_cast<uint8_t>(enable != JNI_FALSE
                                ? NCI_ANDROID_PASSIVE_OBSERVE_PARAM_ENABLE
                                : NCI_ANDROID_PASSIVE_OBSERVE_PARAM_DISABLE)};
   {
     SyncEventGuard guard(gNfaVsCommand);
-    tNFA_STATUS status = NFA_SendRawVsCommand(sizeof(cmd), cmd, nfaVSCallback);
+    tNFA_STATUS status = NFA_SendVsCommand(NCI_MSG_PROP_ANDROID, sizeof(cmd),
+                                           cmd, nfaVSCallback);
 
     if (status == NFA_STATUS_OK) {
       if (!gNfaVsCommand.wait(1000)) {
