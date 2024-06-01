@@ -150,6 +150,7 @@ static bool sEnableVendorNciNotifications = false;
    NFA_TECHNOLOGY_MASK_KOVIO)
 #define DEFAULT_DISCOVERY_DURATION 500
 #define READER_MODE_DISCOVERY_DURATION 200
+#define FLAG_SET_DEFAULT_TECH 0x40000000
 
 static void nfaConnectionCallback(uint8_t event, tNFA_CONN_EVT_DATA* eventData);
 static void nfaDeviceManagementCallback(uint8_t event,
@@ -2026,17 +2027,20 @@ static void nfcManager_setDiscoveryTech(JNIEnv* e, jobject o, jint pollTech,
   tNFA_STATUS nfaStat;
   bool isRevertPoll = false;
   bool isRevertListen = false;
+  bool changeDefaultTech = false;
   LOG(DEBUG) << StringPrintf("%s  pollTech = 0x%x, listenTech = 0x%x", __func__,
                              pollTech, listenTech);
 
   if (pollTech < 0) isRevertPoll = true;
   if (listenTech < 0) isRevertListen = true;
+  if (pollTech & FLAG_SET_DEFAULT_TECH || listenTech & FLAG_SET_DEFAULT_TECH)
+    changeDefaultTech = true;
 
   nativeNfcTag_acquireRfInterfaceMutexLock();
   SyncEventGuard guard(sNfaEnableDisablePollingEvent);
 
   nfaStat = NFA_ChangeDiscoveryTech(pollTech, listenTech, isRevertPoll,
-                                    isRevertListen);
+                                    isRevertListen, changeDefaultTech);
 
   if (nfaStat == NFA_STATUS_OK) {
     // wait for NFA_LISTEN_DISABLED_EVT
@@ -2065,7 +2069,7 @@ static void nfcManager_resetDiscoveryTech(JNIEnv* e, jobject o) {
   nativeNfcTag_acquireRfInterfaceMutexLock();
   SyncEventGuard guard(sNfaEnableDisablePollingEvent);
 
-  nfaStat = NFA_ChangeDiscoveryTech(0xFF, 0xFF, true, true);
+  nfaStat = NFA_ChangeDiscoveryTech(0xFF, 0xFF, true, true, false);
 
   if (nfaStat == NFA_STATUS_OK) {
     // wait for NFA_LISTEN_DISABLED_EVT

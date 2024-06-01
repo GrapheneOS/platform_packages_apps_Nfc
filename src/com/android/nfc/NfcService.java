@@ -229,6 +229,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     static final int NFC_POLL_B_PRIME = 0x10;
     static final int NFC_POLL_KOVIO = 0x20;
 
+    // Listen technology masks
+    static final int NFC_LISTEN_A = 0x01;
+    static final int NFC_LISTEN_B = 0x02;
+    static final int NFC_LISTEN_F = 0x04;
+    static final int NFC_LISTEN_V = 0x08;
+
+    static final String PREF_POLL_TECH = "polling_tech_dfl";
+
+    // Default polling tech mask
+    static final int DEFAULT_POLL_TECH = 0x2f; // See: Polling technology masks above
+
+    static final String PREF_LISTEN_TECH = "listen_tech_dfl";
+    // Default listening tech mask
+    static final int DEFAULT_LISTEN_TECH = 0xf; // See: Listen technology masks above
+
     // minimum screen state that enables NFC polling
     static final int NFC_POLLING_MODE = ScreenStateHelper.SCREEN_STATE_ON_UNLOCKED;
 
@@ -620,6 +635,34 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     boolean getNfcOnSetting() {
         synchronized (NfcService.this) {
             return mPrefs.getBoolean(PREF_NFC_ON, NFC_ON_DEFAULT);
+        }
+    }
+
+    void saveNfcListenTech(int tech) {
+        synchronized (NfcService.this) {
+            mPrefsEditor.putInt(PREF_LISTEN_TECH, tech);
+            mPrefsEditor.apply();
+            mBackupManager.dataChanged();
+        }
+    }
+
+    int getNfcListenTech() {
+        synchronized (NfcService.this) {
+            return mPrefs.getInt(PREF_LISTEN_TECH, DEFAULT_LISTEN_TECH);
+        }
+    }
+
+    void saveNfcPollTech(int tech) {
+        synchronized (NfcService.this) {
+            mPrefsEditor.putInt(PREF_POLL_TECH, tech);
+            mPrefsEditor.apply();
+            mBackupManager.dataChanged();
+        }
+    }
+
+    int getNfcPollTech() {
+        synchronized (NfcService.this) {
+            return mPrefs.getInt(PREF_POLL_TECH, DEFAULT_POLL_TECH);
         }
     }
 
@@ -1259,6 +1302,23 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             mDeviceHost.doSetScreenState(screen_state_mask, mIsWlcEnabled);
 
             sToast_debounce = false;
+
+            int pollTech = -1;
+            if (mPrefs.contains(PREF_POLL_TECH)) {
+                pollTech = getNfcPollTech();
+            }
+            int listenTech = -1;
+            if (mPrefs.contains(PREF_LISTEN_TECH)) {
+                listenTech = getNfcListenTech();
+            }
+            if (listenTech == -1 || listenTech == DEFAULT_LISTEN_TECH)
+                listenTech = (NfcAdapter.FLAG_LISTEN_KEEP|NfcAdapter.FLAG_USE_ALL_TECH);
+
+            if (pollTech == -1 || pollTech == DEFAULT_POLL_TECH)
+                pollTech = (NfcAdapter.FLAG_READER_KEEP|NfcAdapter.FLAG_USE_ALL_TECH);
+
+            mDeviceHost.setDiscoveryTech(pollTech|NfcAdapter.FLAG_SET_DEFAULT_TECH,
+                             listenTech|NfcAdapter.FLAG_SET_DEFAULT_TECH);
 
             /* Skip applyRouting if always on state is switching */
             if (!mIsAlwaysOnSupported
@@ -1914,20 +1974,55 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 throws RemoteException {
             NfcPermissions.enforceUserPermissions(mContext);
             int callingUid = Binder.getCallingUid();
-            boolean privilegedCaller = false;
+            boolean privilegedCaller = isPrivileged(callingUid)
+                    || NfcPermissions.checkAdminPermissions(mContext);
             // Allow non-foreground callers with system uid or systemui
             String packageName = getPackageNameFromUid(callingUid);
             if (packageName != null) {
-                privilegedCaller = (callingUid == Process.SYSTEM_UID
-                        || packageName.equals(SYSTEM_UI));
-            } else {
-                privilegedCaller = (callingUid == Process.SYSTEM_UID);
+                privilegedCaller |= packageName.equals(SYSTEM_UI);
             }
-            if (!privilegedCaller
-                    && !mForegroundUtils.registerUidToBackgroundCallback(
+            Log.d(TAG, "updateDiscoveryTechnology: uid=" + callingUid +
+                    ", packageName: " + packageName);
+            if (!privilegedCaller) {
+                pollTech &= ~NfcAdapter.FLAG_SET_DEFAULT_TECH;
+                listenTech &= ~NfcAdapter.FLAG_SET_DEFAULT_TECH;
+                if (!mForegroundUtils.registerUidToBackgroundCallback(
                             NfcService.this, callingUid)) {
-                Log.e(TAG,
-                  "updateDiscoveryTechnology: Caller shall be in foreground or a system process.");
+                    Log.e(TAG,
+                          "updateDiscoveryTechnology: Unprivileged caller shall be in foreground");
+                    return;
+                }
+            } else if (((pollTech & NfcAdapter.FLAG_SET_DEFAULT_TECH) != 0
+                        || (listenTech & NfcAdapter.FLAG_SET_DEFAULT_TECH) != 0)) {
+
+                if ((pollTech & NfcAdapter.FLAG_SET_DEFAULT_TECH) != 0) {
+                    if ((pollTech & NfcAdapter.FLAG_READER_KEEP) == 0 &&
+                        (pollTech & NfcAdapter.FLAG_USE_ALL_TECH)
+                            != NfcAdapter.FLAG_USE_ALL_TECH) {
+                        saveNfcPollTech(pollTech & ~NfcAdapter.FLAG_SET_DEFAULT_TECH);
+                        Log.i(TAG, "Default pollTech is set to 0x" +
+                            Integer.toHexString(pollTech));
+                    } else if ((pollTech
+                            & (NfcAdapter.FLAG_READER_KEEP | NfcAdapter.FLAG_USE_ALL_TECH))
+                            == (NfcAdapter.FLAG_READER_KEEP | NfcAdapter.FLAG_USE_ALL_TECH)){
+                        saveNfcPollTech(DEFAULT_POLL_TECH);
+                    }
+                }
+                if ((listenTech & NfcAdapter.FLAG_SET_DEFAULT_TECH) != 0) {
+                    if ((listenTech & NfcAdapter.FLAG_LISTEN_KEEP) == 0 &&
+                        (listenTech & NfcAdapter.FLAG_USE_ALL_TECH)
+                            != NfcAdapter.FLAG_USE_ALL_TECH) {
+                        saveNfcListenTech(listenTech & ~NfcAdapter.FLAG_SET_DEFAULT_TECH);
+                        Log.i(TAG, "Default listenTech is set to 0x" +
+                            Integer.toHexString(listenTech));
+                    } else if ((listenTech
+                            & (NfcAdapter.FLAG_LISTEN_KEEP | NfcAdapter.FLAG_USE_ALL_TECH))
+                            == (NfcAdapter.FLAG_LISTEN_KEEP | NfcAdapter.FLAG_USE_ALL_TECH)) {
+                       saveNfcListenTech(DEFAULT_LISTEN_TECH);
+                   }
+                }
+                mDeviceHost.setDiscoveryTech(pollTech, listenTech);
+                applyRouting(true);
                 return;
             }
             synchronized (NfcService.this) {

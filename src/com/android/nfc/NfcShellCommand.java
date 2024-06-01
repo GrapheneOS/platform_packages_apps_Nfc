@@ -109,6 +109,12 @@ public class NfcShellCommand extends BasicShellCommandHandler {
                     boolean enableAlwaysOn = getNextArgRequiredTrueOrFalse("enable", "disable");
                     mNfcService.mNfcAdapter.setControllerAlwaysOn(enableAlwaysOn);
                     return 0;
+                case "set-discovery-tech":
+                    int pollTech = Integer.parseInt(getNextArg());
+                    int listenTech = Integer.parseInt(getNextArg());
+                    mNfcService.mNfcAdapter.updateDiscoveryTechnology(
+                            new Binder(), pollTech, listenTech);
+                    return 0;
                 default:
                     return handleDefaultCommands(cmd);
             }
@@ -161,6 +167,7 @@ public class NfcShellCommand extends BasicShellCommandHandler {
         pw.println("    Enable or reader mode polling");
         pw.println("  set-controller-always-on enable|disable");
         pw.println("    Enable or disable controller always on");
+        pw.println("  set-discovery-tech poll-mask|listen-mask");
     }
 
     @Override
