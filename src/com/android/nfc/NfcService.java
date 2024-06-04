@@ -1756,12 +1756,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 }
             }
 
+            long start = SystemClock.elapsedRealtime();
+
+            boolean result = mDeviceHost.setObserveMode(enable);
+
             if (mStatsdUtils != null) {
                 mStatsdUtils.logObserveModeStateChanged(enable, triggerSource,
-                        0 /* TODO(b/334983405) measure latency */);
+                        (int)(SystemClock.elapsedRealtime() - start));
             }
 
-            return mDeviceHost.setObserveMode(enable);
+            return result;
         }
 
         private String getWalletRoleHolder(UserHandle user) {

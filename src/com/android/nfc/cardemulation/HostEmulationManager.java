@@ -733,7 +733,7 @@ public class HostEmulationManager {
         try {
             mActiveService.send(msg);
         } catch (RemoteException e) {
-            Log.e(TAG, "Remote service has died, dropping APDU");
+            Log.e(TAG, "Remote service " + mActiveServiceName + " has died, dropping APDU", e);
         }
     }
 
@@ -762,7 +762,7 @@ public class HostEmulationManager {
         try {
             mActiveService.send(msg);
         } catch (RemoteException e) {
-            Log.e(TAG, "Remote service has died, dropping frames");
+            Log.e(TAG, "Remote service " + mActiveServiceName + " has died, dropping frames", e);
         }
     }
 
