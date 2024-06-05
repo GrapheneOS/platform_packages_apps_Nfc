@@ -205,6 +205,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     static final int MSG_CLEAR_ROUTING_TABLE = 21;
     static final int MSG_UPDATE_ISODEP_PROTOCOL_ROUTE = 22;
     static final int MSG_UPDATE_TECHNOLOGY_AB_ROUTE = 23;
+    static final int MSG_ON_POLLING_FRAMES = 24;
 
     static final String MSG_ROUTE_AID_PARAM_TAG = "power";
 
@@ -519,9 +520,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
     @Override
     public void onPollingLoopDetected(List<PollingFrame> frames) {
-        if (mCardEmulationManager != null && android.nfc.Flags.nfcReadPollingLoop()) {
-            mCardEmulationManager.onPollingLoopDetected(frames);
-        }
+        sendMessage(NfcService.MSG_ON_POLLING_FRAMES, frames);
     }
 
     @Override
@@ -1732,7 +1731,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             int callingUid = Binder.getCallingUid();
             int triggerSource =
                     NFC_OBSERVE_MODE_STATE_CHANGED__TRIGGER_SOURCE__TRIGGER_SOURCE_UNKNOWN;
-            if (!isPrivileged(callingUid)) {
+            boolean isPrivileged = isPrivileged(callingUid);
+            if (!isPrivileged) {
                 NfcPermissions.enforceUserPermissions(mContext);
                 if (packageName == null) {
                     Log.e(TAG, "no package name associated with non-privileged calling UID");
@@ -3777,6 +3777,11 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         dispatchTagEndpoint(tag, readerParams);
                     } else {
                         tag.startPresenceChecking(presenceCheckDelay, callback);
+                    }
+                    break;
+                case MSG_ON_POLLING_FRAMES:
+                    if (mCardEmulationManager != null && android.nfc.Flags.nfcReadPollingLoop()) {
+                        mCardEmulationManager.onPollingLoopDetected((List<PollingFrame>)msg.obj);
                     }
                     break;
 

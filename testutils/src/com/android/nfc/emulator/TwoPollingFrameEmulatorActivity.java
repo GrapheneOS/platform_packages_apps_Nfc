@@ -34,24 +34,16 @@ import java.util.List;
 import java.util.Queue;
 
 public class TwoPollingFrameEmulatorActivity extends BaseEmulatorActivity {
-    private static final String TAG = "PollingLoopActivity";
+    private static final String TAG = "TwoPollingFrameActivity";
 
-    private static final String SERVICE_1_FRAME = "aaaaaaaa";
     private static final String SERVICE_2_FRAME = "bbbbbbbb";
 
     // Number of loops to track in queue
-    public static final String NFC_TECH_KEY = "NFC_TECH";
-    public static final String NFC_CUSTOM_FRAME_KEY = "NFC_CUSTOM_FRAME";
     public static final String SEEN_CORRECT_POLLING_LOOP_ACTION =
             PACKAGE_NAME + ".SEEN_CORRECT_POLLING_LOOP_ACTION";
-    private boolean mSentBroadcast = false;
 
-    // Keeps track of last mCapacity PollingFrames
-    private Queue<PollingFrame> mQueue = new ArrayDeque<PollingFrame>();
-
-    private int mCapacity;
-
-    private int mLoopSize;
+    private int mService1Count = 0;
+    private boolean mService2Matched = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,12 +59,10 @@ public class TwoPollingFrameEmulatorActivity extends BaseEmulatorActivity {
         ComponentName serviceName1 =
                 new ComponentName(this.getApplicationContext(), PollingLoopService.class);
         mCardEmulation.setShouldDefaultToObserveModeForService(serviceName1, true);
-        mCardEmulation.registerPollingLoopFilterForService(serviceName1, SERVICE_1_FRAME, false);
 
         ComponentName serviceName2 =
                 new ComponentName(this.getApplicationContext(), PollingLoopService2.class);
         mCardEmulation.setShouldDefaultToObserveModeForService(serviceName2, true);
-        mCardEmulation.registerPollingLoopFilterForService(serviceName2, SERVICE_2_FRAME, false);
 
         mCardEmulation.setPreferredService(this, serviceName1);
         waitForService();
@@ -102,20 +92,22 @@ public class TwoPollingFrameEmulatorActivity extends BaseEmulatorActivity {
     void processPollingFrame(PollingFrame frame, String serviceName) {
         Log.d(TAG, "processPollingFrame: " + (char) (frame.getType()) + " service: " + serviceName);
 
-        switch (frame.getType()) {
-            case PollingFrame.POLLING_LOOP_TYPE_UNKNOWN:
-                Log.e(TAG, "got custom frame: " + HexFormat.of().formatHex(frame.getData()));
-                byte[] data = frame.getData();
-                boolean matchesService1 = serviceName.equals(PollingLoopService.class.getName()) &&
-                        SERVICE_1_FRAME.equals(HexFormat.of().formatHex(data));
-                boolean matchesService2 = serviceName.equals(PollingLoopService2.class.getName()) &&
-                        SERVICE_2_FRAME.equals(HexFormat.of().formatHex(data));
-                if (matchesService1 || matchesService2) {
-                    Intent intent = new Intent(SEEN_CORRECT_POLLING_LOOP_ACTION);
-                    sendBroadcast(intent);
-                    Log.d(TAG, "Correct custom polling frame seen. Sent broadcast");
-                }
-                break;
+        if (frame.getType() == PollingFrame.POLLING_LOOP_TYPE_UNKNOWN) {
+            Log.e(TAG, "got custom frame: " + HexFormat.of().formatHex(frame.getData()));
+            byte[] data = frame.getData();
+            if (serviceName.equals(PollingLoopService2.class.getName()) &&
+                    SERVICE_2_FRAME.equals(HexFormat.of().formatHex(data))) {
+                Intent intent = new Intent(SEEN_CORRECT_POLLING_LOOP_ACTION);
+                sendBroadcast(intent);
+                mService2Matched = true;
+                Log.d(TAG, "Correct custom polling frame seen. Sent broadcast");
+            }
+        } else if (mService2Matched && serviceName.equals(PollingLoopService.class.getName())) {
+            mService1Count++;
+            if (mService1Count >= 6) {
+                Intent intent = new Intent(SEEN_CORRECT_POLLING_LOOP_ACTION);
+                sendBroadcast(intent);
+            }
         }
     }
 

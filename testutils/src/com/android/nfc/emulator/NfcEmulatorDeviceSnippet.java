@@ -314,7 +314,11 @@ public class NfcEmulatorDeviceSnippet extends NfcSnippet {
 
     @Rpc(description = "Returns if observe mode is supported.")
     public boolean isObserveModeSupported() {
-        return NfcAdapter.getDefaultAdapter(mContext).isObserveModeSupported();
+        NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
+        if (adapter == null) {
+            return false;
+        }
+        return adapter.isObserveModeSupported();
     }
 
     @Rpc(description = "Returns if observe mode is enabled.")
@@ -324,7 +328,10 @@ public class NfcEmulatorDeviceSnippet extends NfcSnippet {
 
     @Rpc(description = "Set observe mode.")
     public boolean setObserveModeEnabled(boolean enable) {
-        return mActivity.setObserveModeEnabled(enable);
+        if (mActivity != null && isObserveModeSupported()) {
+            return mActivity.setObserveModeEnabled(enable);
+        }
+        return false;
     }
 
     /** Open polling loop emulator activity for Type A */

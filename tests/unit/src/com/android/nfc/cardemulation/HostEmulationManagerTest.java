@@ -425,6 +425,34 @@ public class HostEmulationManagerTest {
     }
 
     @Test
+    public void testOnFieldChangeDetected_fieldOff_returnToIdle() {
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+
+        // Should not change state immediately
+        mHostEmulationManager.onFieldChangeDetected(false);
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
+
+        mTestableLooper.moveTimeForward(5000);
+        mTestableLooper.processAllMessages();
+        Assert.assertEquals(HostEmulationManager.STATE_IDLE, mHostEmulationManager.getState());
+    }
+
+    @Test
+    public void testOnPollingLoopDetected_fieldOff_returnToIdle() {
+        PollingFrame frame1 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_ON,
+                null, 0, 0, false);
+        PollingFrame frame2 = new PollingFrame(PollingFrame.POLLING_LOOP_TYPE_OFF,
+                null, 0, 0, false);
+        mHostEmulationManager.onPollingLoopDetected(List.of(frame1, frame2));
+        Assert.assertEquals(HostEmulationManager.STATE_POLLING_LOOP,
+                mHostEmulationManager.getState());
+
+        mTestableLooper.moveTimeForward(5000);
+        mTestableLooper.processAllMessages();
+        Assert.assertEquals(HostEmulationManager.STATE_IDLE, mHostEmulationManager.getState());
+    }
+
+    @Test
     public void testOnHostEmulationActivated() {
         mHostEmulationManager.onHostEmulationActivated();
 
@@ -436,6 +464,16 @@ public class HostEmulationManagerTest {
         Intent intent = mIntentArgumentCaptor.getValue();
         Assert.assertEquals(TapAgainDialog.ACTION_CLOSE, intent.getAction());
         Assert.assertEquals(HostEmulationManager.NFC_PACKAGE, intent.getPackage());
+        Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT, mHostEmulationManager.getState());
+    }
+
+    @Test
+    public void testOnHostEmulationActivated_doesNotReturnToIdle() {
+        mHostEmulationManager.onFieldChangeDetected(false);
+        mHostEmulationManager.onHostEmulationActivated();
+
+        mTestableLooper.moveTimeForward(5000);
+        mTestableLooper.processAllMessages();
         Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT, mHostEmulationManager.getState());
     }
 
@@ -887,6 +925,19 @@ public class HostEmulationManagerTest {
         Assert.assertTrue(mHostEmulationManager.mServiceBound);
         Assert.assertEquals(USER_ID, mHostEmulationManager.mServiceUserId);
         verifyNoMoreInteractions(mContext);
+    }
+
+    @Test
+    public void testOnHostEmulationData_doesNotReturnToIdle() {
+        mHostEmulationManager.mState = HostEmulationManager.STATE_XFER;
+        mHostEmulationManager.onFieldChangeDetected(false);
+
+        byte[] emptyData = new byte[1];
+        mHostEmulationManager.onHostEmulationData(emptyData);
+
+        mTestableLooper.moveTimeForward(5000);
+        mTestableLooper.processAllMessages();
+        Assert.assertEquals(HostEmulationManager.STATE_XFER, mHostEmulationManager.getState());
     }
 
     @Test

@@ -33,6 +33,7 @@ import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.HostApduService;
 import android.nfc.cardemulation.PollingFrame;
 import android.nfc.cardemulation.Utils;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
@@ -102,6 +103,7 @@ public class HostEmulationManager {
             NfcStatsLog.NFC_CARDEMULATION_OCCURRED__CATEGORY__HCE_OTHER;
     static final String NFC_PACKAGE = "com.android.nfc";
     static final String DATA_KEY = "data";
+    static final int FIELD_OFF_IDLE_DELAY_MS = 2000;
 
     final Context mContext;
     final RegisteredAidCache mAidCache;
@@ -149,6 +151,20 @@ public class HostEmulationManager {
     int mState;
     byte[] mSelectApdu;
     Handler mHandler;
+
+    // Runnable to return to an IDLE_STATE and reset preferred service. This should be run after we
+    // have left a field and gone a period of time without any HCE or polling frame data.
+    Runnable mReturnToIdleStateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (mLock) {
+                Log.d(TAG, "Have been outside field, returning to idle state");
+                mPendingPollingLoopFrames = null;
+                resetActiveService();
+                mState = STATE_IDLE;
+            }
+        }
+    };
 
     public HostEmulationManager(Context context, Looper looper, RegisteredAidCache aidCache) {
         this(context, looper, aidCache, new StatsdUtils(StatsdUtils.SE_NAME_HCE));
@@ -212,7 +228,12 @@ public class HostEmulationManager {
         synchronized (mLock) {
             if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
                 NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-                mHandler.post(() -> adapter.setObserveModeEnabled(enabled));
+                long token = Binder.clearCallingIdentity();
+                try {
+                    adapter.setObserveModeEnabled(enabled);
+                } finally {
+                    Binder.restoreCallingIdentity(token);
+                }
             } else {
                 mEnableObserveModeAfterTransaction = enabled;
             }
@@ -252,6 +273,14 @@ public class HostEmulationManager {
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public void onPollingLoopDetected(List<PollingFrame> pollingFrames) {
         synchronized (mLock) {
+            mHandler.removeCallbacks(mReturnToIdleStateRunnable);
+            // We need to have this check here in addition to the one in onFieldChangeDetected,
+            // because we can receive an OFF frame after the field change is detected.
+            if (!pollingFrames.isEmpty()
+                    && pollingFrames.getLast().getType() == PollingFrame.POLLING_LOOP_TYPE_OFF) {
+                mHandler.postDelayed(mReturnToIdleStateRunnable, FIELD_OFF_IDLE_DELAY_MS);
+            }
+
             if (mState == STATE_IDLE) {
                 mState = STATE_POLLING_LOOP;
             }
@@ -372,7 +401,12 @@ public class HostEmulationManager {
         Log.d(TAG, "disabling observe mode for one transaction.");
         mEnableObserveModeAfterTransaction = true;
         NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-        mHandler.post(() -> adapter.setObserveModeEnabled(false));
+        long token = Binder.clearCallingIdentity();
+        try {
+            adapter.setObserveModeEnabled(false);
+        } finally {
+            Binder.restoreCallingIdentity(token);
+        }
     }
 
     /**
@@ -393,17 +427,27 @@ public class HostEmulationManager {
      }
 
     public void onFieldChangeDetected(boolean fieldOn) {
+        mHandler.removeCallbacks(mReturnToIdleStateRunnable);
+        if (!fieldOn) {
+            mHandler.postDelayed(mReturnToIdleStateRunnable, FIELD_OFF_IDLE_DELAY_MS);
+        }
         if (!fieldOn && mEnableObserveModeOnFieldOff &&  mEnableObserveModeAfterTransaction) {
             Log.d(TAG, "re-enabling observe mode after NFC Field off.");
             mEnableObserveModeAfterTransaction = false;
             mEnableObserveModeOnFieldOff = false;
             NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-            mHandler.post(() -> adapter.setObserveModeEnabled(true));
+            long token = Binder.clearCallingIdentity();
+            try {
+                adapter.setObserveModeEnabled(true);
+            } finally {
+                Binder.restoreCallingIdentity(token);
+            }
         }
     }
 
     public void onHostEmulationActivated() {
         synchronized (mLock) {
+            mHandler.removeCallbacks(mReturnToIdleStateRunnable);
             // Regardless of what happens, if we're having a tap again
             // activity up, close it
             Intent intent = new Intent(TapAgainDialog.ACTION_CLOSE);
@@ -441,6 +485,7 @@ public class HostEmulationManager {
 
     public void onHostEmulationData(byte[] data) {
         Log.d(TAG, "notifyHostEmulationData");
+        mHandler.removeCallbacks(mReturnToIdleStateRunnable);
         String selectAid = findSelectAid(data);
         ComponentName resolvedService = null;
         ApduServiceInfo resolvedServiceInfo = null;
@@ -643,7 +688,12 @@ public class HostEmulationManager {
                 Log.d(TAG, "re-enabling observe mode after HCE deactivation");
                 mEnableObserveModeAfterTransaction = false;
                 NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-                mHandler.post(() -> adapter.setObserveModeEnabled(true));
+                long token = Binder.clearCallingIdentity();
+                try {
+                    adapter.setObserveModeEnabled(true);
+                } finally {
+                    Binder.restoreCallingIdentity(token);
+                }
             }
 
             if (mStatsdUtils != null) {

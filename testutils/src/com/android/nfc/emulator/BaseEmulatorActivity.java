@@ -42,6 +42,7 @@ import com.android.nfc.service.PaymentService1;
 import com.android.nfc.service.PaymentService2;
 import com.android.nfc.service.PaymentServiceDynamicAids;
 import com.android.nfc.service.PollingLoopService;
+import com.android.nfc.service.PollingLoopService2;
 import com.android.nfc.service.PrefixAccessService;
 import com.android.nfc.service.PrefixPaymentService1;
 import com.android.nfc.service.PrefixPaymentService2;
@@ -87,7 +88,8 @@ public abstract class BaseEmulatorActivity extends Activity {
                             ScreenOffPaymentService.COMPONENT,
                             OffHostService.COMPONENT,
                             ScreenOnOnlyOffHostService.COMPONENT,
-                            PollingLoopService.COMPONENT));
+                            PollingLoopService.COMPONENT,
+                            PollingLoopService2.COMPONENT));
     protected static final String TAG = "BaseEmulatorActivity";
     protected NfcAdapter mAdapter;
     protected CardEmulation mCardEmulation;
