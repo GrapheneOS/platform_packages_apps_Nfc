@@ -24,7 +24,7 @@
     <string name="offhostService" msgid="2153585078114315278">"Servizo fóra do servidor"</string>
     <string name="accessService" msgid="169603026393620416">"Acceso ao servizo"</string>
     <string name="screenOffPaymentService" msgid="4807235640853231967">"Servizo de pago coa pantalla apagada"</string>
-    <string name="screenOnOnlyOffHostService" msgid="1209570782652205407">"Servizo de pago fóra do servidor só coa pantalla acendida"</string>
+    <string name="screenOnOnlyOffHostService" msgid="1209570782652205407">"Servizo fóra do servidor só coa pantalla acendida"</string>
     <string name="ppse" msgid="3369197818756940218">"PPSE"</string>
     <string name="mastercard" msgid="2202161212986753725">"MasterCard"</string>
     <string name="visa" msgid="8369831032637923417">"Visa"</string>

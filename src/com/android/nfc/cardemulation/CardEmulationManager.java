@@ -1043,11 +1043,11 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         ComponentName oldPreferredService = mAidCache.getPreferredService();
         mAidCache.onPreferredPaymentServiceChanged(userId, service);
         mHostEmulationManager.onPreferredPaymentServiceChanged(userId, service);
+        ComponentName newPreferredService = mAidCache.getPreferredService();
 
-            NfcService.getInstance().onPreferredPaymentChanged(
+        NfcService.getInstance().onPreferredPaymentChanged(
                     NfcAdapter.PREFERRED_PAYMENT_CHANGED);
-
-        if (!Objects.equals(oldPreferredService, service)) {
+        if (!Objects.equals(oldPreferredService, newPreferredService)) {
             updateForShouldDefaultToObserveMode(userId);
         }
     }
@@ -1058,10 +1058,11 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         ComponentName oldPreferredService = mAidCache.getPreferredService();
         mAidCache.onPreferredForegroundServiceChanged(userId, service);
         mHostEmulationManager.onPreferredForegroundServiceChanged(userId, service);
+        ComponentName newPreferredService = mAidCache.getPreferredService();
 
         NfcService.getInstance().onPreferredPaymentChanged(
                 NfcAdapter.PREFERRED_PAYMENT_CHANGED);
-        if (!Objects.equals(oldPreferredService, service)) {
+        if (!Objects.equals(oldPreferredService, newPreferredService)) {
             updateForShouldDefaultToObserveMode(userId);
         }
     }

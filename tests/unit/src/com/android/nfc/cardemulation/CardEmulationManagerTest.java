@@ -1880,6 +1880,32 @@ public class CardEmulationManagerTest {
     }
 
     @Test
+    public void testOnPreferredPaymentServiceChanged_toNull_dontUpdateObserveMode() {
+        when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
+                .thenReturn(true);
+        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
+
+        mCardEmulationManager.onPreferredPaymentServiceChanged(USER_ID, null);
+
+        verify(mRegisteredServicesCache).initialize();
+        assertUpdateForShouldDefaultToObserveMode(false);
+    }
+
+    @Test
+    public void testOnPreferredForegroundServiceChanged_toNull_dontUpdateObserveMode() {
+        when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
+                .thenReturn(true);
+        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
+
+        mCardEmulationManager.onPreferredForegroundServiceChanged(USER_ID, null);
+
+        verify(mRegisteredServicesCache).initialize();
+        assertUpdateForShouldDefaultToObserveMode(false);
+    }
+
+    @Test
     public void testOnWalletRoleHolderChanged() {
         mCardEmulationManager.onWalletRoleHolderChanged(WALLET_HOLDER_PACKAGE_NAME, USER_ID);
 

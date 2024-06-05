@@ -1223,6 +1223,26 @@ void RoutingManager::clearRoutingEntry(int clearFlags) {
   }
 }
 
+/*******************************************************************************
+**
+** Function:        setEeTechRouteUpdateRequired
+**
+** Description:     Set flag EeInfoChanged so that tech route will be updated
+**                  when applying route table.
+**
+** Returns:         None
+**
+*******************************************************************************/
+void RoutingManager::setEeTechRouteUpdateRequired() {
+  static const char fn[] = "RoutingManager::setEeTechRouteUpdateRequired";
+
+  LOG(DEBUG) << StringPrintf("%s", fn);
+
+  // Setting flag for Ee info changed so that
+  // routing table can be updated
+  mEeInfoChanged = true;
+}
+
 void RoutingManager::deinitialize() {
   onNfccShutdown();
   NFA_EeDeregister(nfaEeCallback);
