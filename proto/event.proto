@@ -38,6 +38,8 @@ message EventType {
     NfcStateChange state_change = 2;
     NfcReaderModeChange reader_mode_change = 3;
     NfcCeUnroutableAid ce_unroutable_aid = 4;
+    NfcObserveModeChange observe_mode_change = 5;
+    NfcWalletRoleHolderChange wallet_role_holder_change = 6;
   }
 }
 
@@ -62,4 +64,15 @@ message NfcReaderModeChange {
 
 message NfcCeUnroutableAid {
   required string aid = 1;
+}
+
+message NfcObserveModeChange {
+  optional NfcAppInfo app_info = 1;
+  required bool enable = 2;
+  required bool result = 3;
+  required int32 latency_ms = 4;
+}
+
+message NfcWalletRoleHolderChange {
+  optional string package_name = 1;
 }

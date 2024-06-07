@@ -29,6 +29,8 @@ import android.os.UserHandle;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.google.common.collect.ImmutableList;
+import com.android.nfc.NfcEventLog;
+import com.android.nfc.NfcInjector;
 
 import org.junit.Assert;
 import org.junit.Before;
@@ -61,6 +63,10 @@ public class WalletRoleObserverTest {
     WalletRoleObserver.Callback mCallback;
     @Mock
     Executor mExecutor;
+    @Mock
+    NfcInjector mNfcInjector;
+    @Mock
+    NfcEventLog mNfcEventLog;
     @Captor
     ArgumentCaptor<String> mRoleNameCaptor;
     @Captor
@@ -73,7 +79,9 @@ public class WalletRoleObserverTest {
     public void setUp() {
         MockitoAnnotations.initMocks(this);
         when(mContext.getMainExecutor()).thenReturn(mExecutor);
-        mWalletRoleObserver = new WalletRoleObserver(mContext, mRoleManager, mCallback);
+        when(mNfcInjector.getNfcEventLog()).thenReturn(mNfcEventLog);
+        mWalletRoleObserver =
+            new WalletRoleObserver(mContext, mRoleManager, mCallback, mNfcInjector);
     }
 
     @Test

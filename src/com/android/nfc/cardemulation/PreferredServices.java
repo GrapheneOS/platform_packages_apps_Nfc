@@ -508,6 +508,14 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
             pw.println("Preferred services (in order of importance): ");
             pw.println("    *** Current preferred foreground service: " + mForegroundCurrent
                     + " (UID:" + mForegroundCurrentUid + ")");
+            if (mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+                boolean roleNotSet = mDefaultWalletHolderPaymentService == null;
+                pw.println("    *** Current wallet payment service: "
+                        + (roleNotSet ? "null" :
+                        mDefaultWalletHolderPaymentService) + "("
+                        + (roleNotSet ? "no user"
+                        : getUserName(UserHandle.of(mUserIdDefaultWalletHolder))) + ")");
+            }
             pw.println("    *** Current preferred payment service: "
                     + mPaymentDefaults.currentPreferred + "("
                     + getUserName(mPaymentDefaults.mUserHandle) + ")");
@@ -515,10 +523,12 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
                     + " (" + getUserName(UserHandle.of(mNextTapDefaultUserId)) + ")");
             pw.println("        Default for foreground app (UID: " + mForegroundUid
                     + "): " + mForegroundRequested);
-            pw.println("        Default in payment settings: " + mPaymentDefaults.settingsDefault
-                    + "(" + getUserName(mPaymentDefaults.mUserHandle) + ")");
-            pw.println("        Payment settings allows override: "
-                    + mPaymentDefaults.preferForeground);
+            if (!mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+                pw.println("        Default in payment settings: " + mPaymentDefaults.settingsDefault
+                        + "(" + getUserName(mPaymentDefaults.mUserHandle) + ")");
+                pw.println("        Payment settings allows override: "
+                        + mPaymentDefaults.preferForeground);
+            }
             pw.println("");
         }
     }

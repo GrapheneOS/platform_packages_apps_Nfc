@@ -48,6 +48,7 @@ import android.os.RemoteException;
 import android.os.UserHandle;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
+import android.util.Pair;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.NfcEventLog;
@@ -151,6 +152,7 @@ public class HostEmulationManagerTest {
         when(com.android.nfc.flags.Flags.statsdCeEventsFlag()).thenReturn(true);
         when(mContext.getSystemService(eq(PowerManager.class))).thenReturn(mPowerManager);
         when(mContext.getSystemService(eq(KeyguardManager.class))).thenReturn(mKeyguardManager);
+        when(mRegisteredAidCache.getPreferredPaymentService()).thenReturn(new Pair<>(null, null));
         mHostEmulationManager = new HostEmulationManager(mContext, mTestableLooper.getLooper(),
                 mRegisteredAidCache, mStatsUtils);
     }
@@ -1164,6 +1166,71 @@ public class HostEmulationManagerTest {
 
         Assert.assertNull(mHostEmulationManager.mPaymentService);
         Assert.assertNull(mHostEmulationManager.mPaymentServiceName);
+    }
+
+    @Test
+    public void testPaymentServiceConnectionOnBindingDied_successfulRebind() {
+        when(mContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(true);
+
+        UserHandle userHandle = UserHandle.of(USER_ID);
+
+        mHostEmulationManager.mPaymentService = mMessanger;
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+
+        mHostEmulationManager.getPaymentConnection().onServiceDisconnected(WALLET_PAYMENT_SERVICE);
+        Assert.assertNull(mHostEmulationManager.mPaymentService);
+        Assert.assertNull(mHostEmulationManager.mPaymentServiceName);
+
+        mHostEmulationManager.getPaymentConnection().onBindingDied(WALLET_PAYMENT_SERVICE);
+
+        verify(mContext).unbindService(eq(mHostEmulationManager.getPaymentConnection()));
+        verify(mContext).bindServiceAsUser(mIntentArgumentCaptor.capture(),
+                mServiceConnectionArgumentCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS),
+                eq(userHandle));
+
+        Assert.assertEquals(USER_ID, mHostEmulationManager.mPaymentServiceUserId);
+        Assert.assertTrue(mHostEmulationManager.mPaymentServiceBound);
+    }
+
+    @Test
+    public void testPaymentServiceConnectionOnBindingDied_rebindOnTap() {
+        when(mContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(false);
+        when(mRegisteredAidCache.getPreferredPaymentService()).
+                thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
+
+        UserHandle userHandle = UserHandle.of(USER_ID);
+
+        mHostEmulationManager.mPaymentService = mMessanger;
+        mHostEmulationManager.mPaymentServiceBound = true;
+        mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
+
+        mHostEmulationManager.getPaymentConnection().onServiceDisconnected(WALLET_PAYMENT_SERVICE);
+        Assert.assertNull(mHostEmulationManager.mPaymentService);
+        Assert.assertNull(mHostEmulationManager.mPaymentServiceName);
+
+        mHostEmulationManager.getPaymentConnection().onBindingDied(WALLET_PAYMENT_SERVICE);
+
+        verify(mContext).unbindService(eq(mHostEmulationManager.getPaymentConnection()));
+        Assert.assertFalse(verify(mContext).bindServiceAsUser(mIntentArgumentCaptor.capture(),
+                mServiceConnectionArgumentCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS),
+                eq(userHandle)));
+
+        Assert.assertFalse(mHostEmulationManager.mPaymentServiceBound);
+
+        when(mContext.bindServiceAsUser(any(), any(), anyInt(), any())).thenReturn(true);
+
+        mHostEmulationManager.bindServiceIfNeededLocked(USER_ID, WALLET_PAYMENT_SERVICE);
+
+        verify(mContext, times(2)).bindServiceAsUser(mIntentArgumentCaptor.capture(),
+                mServiceConnectionArgumentCaptor.capture(),
+                eq(Context.BIND_AUTO_CREATE | Context.BIND_ALLOW_BACKGROUND_ACTIVITY_STARTS),
+                eq(userHandle));
+
+        Assert.assertEquals(USER_ID, mHostEmulationManager.mPaymentServiceUserId);
+        Assert.assertTrue(mHostEmulationManager.mPaymentServiceBound);
     }
 
     @Test

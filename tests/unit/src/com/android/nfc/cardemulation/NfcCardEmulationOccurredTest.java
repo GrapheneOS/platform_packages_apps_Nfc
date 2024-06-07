@@ -48,6 +48,8 @@ import android.platform.test.annotations.RequiresFlagsDisabled;
 import android.platform.test.flag.junit.CheckFlagsRule;
 import android.platform.test.flag.junit.DeviceFlagsValueProvider;
 import android.util.Log;
+import android.util.Pair;
+
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
@@ -121,6 +123,7 @@ public final class NfcCardEmulationOccurredTest {
         aidResolveInfo.services = new ArrayList<ApduServiceInfo>();
         aidResolveInfo.services.add(apduServiceInfo);
         when(mockAidCache.resolveAid(anyString())).thenReturn(aidResolveInfo);
+        when(mockAidCache.getPreferredPaymentService()).thenReturn(new Pair<>(null, null));
         when(NfcService.getInstance()).thenReturn(mock(NfcService.class));
         when(Flags.statsdCeEventsFlag()).thenReturn(false);
 

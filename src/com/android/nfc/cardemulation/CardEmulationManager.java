@@ -49,6 +49,7 @@ import android.util.proto.ProtoOutputStream;
 
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.nfc.ForegroundUtils;
+import com.android.nfc.NfcInjector;
 import com.android.nfc.NfcPermissions;
 import com.android.nfc.NfcService;
 
@@ -122,14 +123,15 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     final byte[] mOffHostRouteUicc;
     final byte[] mOffHostRouteEse;
 
-    public CardEmulationManager(Context context) {
+    // TODO: Move this object instantiation and dependencies to NfcInjector.
+    public CardEmulationManager(Context context, NfcInjector nfcInjector) {
         mContext = context;
         mCardEmulationInterface = new CardEmulationInterface();
         mNfcFCardEmulationInterface = new NfcFCardEmulationInterface();
         mForegroundUtils = ForegroundUtils.getInstance(
             context.getSystemService(ActivityManager.class));
         mWalletRoleObserver = new WalletRoleObserver(context,
-                context.getSystemService(RoleManager.class), this);
+                context.getSystemService(RoleManager.class), this, nfcInjector);
         mAidCache = new RegisteredAidCache(context, mWalletRoleObserver);
         mT3tIdentifiersCache = new RegisteredT3tIdentifiersCache(context);
         mHostEmulationManager =

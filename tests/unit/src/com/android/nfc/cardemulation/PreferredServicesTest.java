@@ -595,12 +595,24 @@ public class PreferredServicesTest {
 
   @Test
   public void testDump() {
+    when(mObserver.isWalletRoleFeatureEnabled()).thenReturn(false);
     when(mUserManager.getUserName()).thenReturn("");
     services = new PreferredServices(mContext, mServicesCache, mAidCache, mObserver, mCallback);
 
     services.dump(null, mPrintWriter, null);
 
     verify(mPrintWriter, times(8)).println(anyString());
+  }
+
+  @Test
+  public void testDump_withWalletRole() {
+    when(mObserver.isWalletRoleFeatureEnabled()).thenReturn(true);
+    when(mUserManager.getUserName()).thenReturn("");
+    services = new PreferredServices(mContext, mServicesCache, mAidCache, mObserver, mCallback);
+
+    services.dump(null, mPrintWriter, null);
+
+    verify(mPrintWriter, times(7)).println(anyString());
   }
 
   private void assertWalletRoleHolderUpdated() {
