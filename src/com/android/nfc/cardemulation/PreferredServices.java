@@ -565,6 +565,13 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
                         mPaymentDefaults.currentPreferred, proto,
                         PreferredServicesProto.FOREGROUND_CURRENT);
             }
+            if (mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+                if (mDefaultWalletHolderPaymentService != null) {
+                    Utils.dumpDebugComponentName(
+                            mDefaultWalletHolderPaymentService, proto,
+                            PreferredServicesProto.WALLET_ROLE_HOLDER_PAYMENT_SERVICE);
+                }
+            }
             if (mNextTapDefault != null) {
                 Utils.dumpDebugComponentName(
                         mNextTapDefault, proto, PreferredServicesProto.NEXT_TAP_DEFAULT);
@@ -574,13 +581,15 @@ public class PreferredServices implements com.android.nfc.ForegroundUtils.Callba
                 Utils.dumpDebugComponentName(
                         mForegroundRequested, proto, PreferredServicesProto.FOREGROUND_REQUESTED);
             }
-            if (mPaymentDefaults.settingsDefault != null) {
-                Utils.dumpDebugComponentName(
-                        mPaymentDefaults.settingsDefault, proto,
-                        PreferredServicesProto.SETTINGS_DEFAULT);
+            if (!mWalletRoleObserver.isWalletRoleFeatureEnabled()) {
+                if (mPaymentDefaults.settingsDefault != null) {
+                    Utils.dumpDebugComponentName(
+                            mPaymentDefaults.settingsDefault, proto,
+                            PreferredServicesProto.SETTINGS_DEFAULT);
+                }
+                proto.write(PreferredServicesProto.PREFER_FOREGROUND,
+                        mPaymentDefaults.preferForeground);
             }
-            proto.write(PreferredServicesProto.PREFER_FOREGROUND,
-                    mPaymentDefaults.preferForeground);
         }
     }
 }
