@@ -1203,13 +1203,14 @@ public class RegisteredAidCache {
         }
     }
 
-    public ComponentName getPreferredService() {
+    @NonNull
+    public Pair<Integer, ComponentName> getPreferredService() {
         if (mPreferredForegroundService != null) {
             // return current foreground service
-            return mPreferredForegroundService;
+            return new Pair<>(mUserIdPreferredForegroundService, mPreferredForegroundService);
         } else {
             // return current preferred service
-            return mPreferredPaymentService;
+            return getPreferredPaymentService();
         }
     }
 

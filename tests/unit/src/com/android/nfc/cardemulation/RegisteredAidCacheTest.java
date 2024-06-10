@@ -30,6 +30,7 @@ import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Pair;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
@@ -210,7 +211,8 @@ public class RegisteredAidCacheTest {
         verify(mAidRoutingManager).supportsAidPrefixRouting();
         verify(mAidRoutingManager).supportsAidSubsetRouting();
         Assert.assertEquals(resolveInfo.defaultService.getComponent(), FOREGROUND_SERVICE);
-        Assert.assertEquals(mRegisteredAidCache.getPreferredService(), FOREGROUND_SERVICE);
+        Assert.assertEquals(mRegisteredAidCache.getPreferredService(),
+                new Pair<>(USER_ID, FOREGROUND_SERVICE));
         Assert.assertEquals(resolveInfo.services.size(), 1);
         Assert.assertEquals(resolveInfo.category, CardEmulation.CATEGORY_PAYMENT);
         verifyNoMoreInteractions(mAidRoutingManager);

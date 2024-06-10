@@ -44,6 +44,7 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.util.Pair;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.ForegroundUtils;
@@ -1041,7 +1042,6 @@ public class CardEmulationManagerTest {
         when(mRegisteredServicesCache.hasService(eq(USER_ID), any())).thenReturn(true);
         when(mRegisteredServicesCache.removeAidGroupForService(eq(USER_ID),
                 anyInt(), any(), eq(CardEmulation.CATEGORY_PAYMENT))).thenReturn(true);
-
         Assert.assertTrue(mCardEmulationManager.getNfcCardEmulationInterface()
                 .removeAidGroupForService(USER_ID, WALLET_PAYMENT_SERVICE,
                         CardEmulation.CATEGORY_PAYMENT));
@@ -1217,7 +1217,8 @@ public class CardEmulationManagerTest {
     public void testCardEmulationGetPreferredPaymentService()
             throws RemoteException {
         ApduServiceInfo apduServiceInfo = Mockito.mock(ApduServiceInfo.class);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(mRegisteredServicesCache.getService(eq(USER_ID), eq(WALLET_PAYMENT_SERVICE)))
                 .thenReturn(apduServiceInfo);
 
@@ -1799,14 +1800,17 @@ public class CardEmulationManagerTest {
 
     @Test
     public void testOnPreferredPaymentServiceChanged_observeModeEnabled() {
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(-1, null));
         mCardEmulationManager.onPreferredPaymentServiceChanged(0, null);
 
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
 
         mCardEmulationManager.onPreferredPaymentServiceChanged(USER_ID, WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
 
         verify(mHostEmulationManager).onPreferredPaymentServiceChanged(eq(USER_ID),
                 eq(WALLET_PAYMENT_SERVICE));
@@ -1824,7 +1828,7 @@ public class CardEmulationManagerTest {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
         when(mRegisteredAidCache.getPreferredService())
-                .thenReturn(null).thenReturn(WALLET_PAYMENT_SERVICE);
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(false);
 
         mCardEmulationManager.onPreferredPaymentServiceChanged(USER_ID, WALLET_PAYMENT_SERVICE);
@@ -1844,7 +1848,8 @@ public class CardEmulationManagerTest {
     public void testOnPreferredForegroundServiceChanged_observeModeEnabled() {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
 
         mCardEmulationManager.onPreferredForegroundServiceChanged(USER_ID, WALLET_PAYMENT_SERVICE);
@@ -1863,7 +1868,8 @@ public class CardEmulationManagerTest {
     public void testOnPreferredForegroundServiceChanged_observeModeDisabled() {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(false);
 
         mCardEmulationManager.onPreferredForegroundServiceChanged(USER_ID, WALLET_PAYMENT_SERVICE);
@@ -1883,7 +1889,8 @@ public class CardEmulationManagerTest {
     public void testOnPreferredPaymentServiceChanged_toNull_dontUpdateObserveMode() {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
 
         mCardEmulationManager.onPreferredPaymentServiceChanged(USER_ID, null);
@@ -1896,7 +1903,8 @@ public class CardEmulationManagerTest {
     public void testOnPreferredForegroundServiceChanged_toNull_dontUpdateObserveMode() {
         when(mRegisteredServicesCache.doesServiceShouldDefaultToObserveMode(anyInt(), any()))
                 .thenReturn(true);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         when(android.nfc.Flags.nfcObserveMode()).thenReturn(true);
 
         mCardEmulationManager.onPreferredForegroundServiceChanged(USER_ID, null);

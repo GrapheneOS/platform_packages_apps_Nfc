@@ -205,7 +205,8 @@ public final class NfcCardEmulationOccurredTest {
         pollingFrames.add(pollingFrame);
         ComponentName componentName = mock(ComponentName.class);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");
-        when(mockAidCache.getPreferredService()).thenReturn(componentName);
+        when(mockAidCache.getPreferredService())
+                .thenReturn(new Pair<>(0, componentName));
         mHostEmulation.onPollingLoopDetected(pollingFrames);
         PollingFrame resultPollingFrame = mHostEmulation.mPendingPollingLoopFrames.get(0);
         Assert.assertEquals(pollingFrame, resultPollingFrame);
@@ -227,7 +228,8 @@ public final class NfcCardEmulationOccurredTest {
                 .thenReturn(PollingFrame.POLLING_LOOP_TYPE_OFF);
         ComponentName componentName = mock(ComponentName.class);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");
-        when(mockAidCache.getPreferredService()).thenReturn(componentName);
+        when(mockAidCache.getPreferredService())
+                .thenReturn(new Pair<>(0, componentName));
         IBinder iBinder = new Binder();
         ServiceConnection serviceConnection = mHostEmulation.getServiceConnection();
         serviceConnection.onServiceConnected(componentName, iBinder);

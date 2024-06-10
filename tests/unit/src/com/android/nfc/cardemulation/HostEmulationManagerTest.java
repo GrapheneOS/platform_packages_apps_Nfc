@@ -284,7 +284,8 @@ public class HostEmulationManagerTest {
         mHostEmulationManager.updatePollingLoopFilters(USER_ID, List.of(serviceWithFilter,
                 serviceWithPatternFilter, overlappingServiceWithFilter));
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         ApplicationInfo applicationInfo = new ApplicationInfo();
         applicationInfo.uid = USER_ID;
         mHostEmulationManager.mPaymentServiceName = WALLET_PAYMENT_SERVICE;
@@ -335,7 +336,8 @@ public class HostEmulationManagerTest {
         when(serviceWithFilter.getUid()).thenReturn(USER_ID);
         mHostEmulationManager.updatePollingLoopFilters(USER_ID, List.of(serviceWithFilter));
         when(mContext.getPackageManager()).thenReturn(mPackageManager);
-        when(mRegisteredAidCache.getPreferredService()).thenReturn(WALLET_PAYMENT_SERVICE);
+        when(mRegisteredAidCache.getPreferredService())
+                .thenReturn(new Pair<>(USER_ID, WALLET_PAYMENT_SERVICE));
         ApplicationInfo applicationInfo = new ApplicationInfo();
         applicationInfo.uid = USER_ID;
         when(mPackageManager.getApplicationInfo(eq(WALLET_HOLDER_PACKAGE_NAME), eq(0)))
