@@ -263,6 +263,7 @@ public class HostEmulationManager {
     @TargetApi(35)
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_READ_POLLING_LOOP)
     public void onPollingLoopDetected(List<PollingFrame> pollingFrames) {
+        Log.d(TAG, "onPollingLoopDetected, size: " + pollingFrames.size());
         synchronized (mLock) {
             mHandler.removeCallbacks(mReturnToIdleStateRunnable);
             // We need to have this check here in addition to the one in onFieldChangeDetected,
