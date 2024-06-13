@@ -125,6 +125,7 @@ public class HostEmulationManager {
     ComponentName mServiceName = null;
     int mServiceUserId; // The UserId of the non-payment service
     ArrayList<PollingFrame> mPendingPollingLoopFrames = null;
+    ArrayList<PollingFrame> mUnprocessedPollingFrames = null;
     Map<ComponentName, ArrayList<PollingFrame>> mPollingFramesToSend = null;
     private Map<Integer, Map<String, List<ApduServiceInfo>>> mPollingLoopFilters;
     private Map<Integer, Map<Pattern, List<ApduServiceInfo>>> mPollingLoopPatternFilters;
@@ -206,7 +207,7 @@ public class HostEmulationManager {
     public void onPreferredPaymentServiceChanged(int userId, final ComponentName service) {
         mHandler.post(() -> {
             synchronized (mLock) {
-                if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+                if (!isHostCardEmulationActivated()) {
                     Log.d(TAG, "onPreferredPaymentServiceChanged, resetting active service");
                     resetActiveService();
                 }
@@ -246,7 +247,7 @@ public class HostEmulationManager {
     @FlaggedApi(android.nfc.Flags.FLAG_NFC_OBSERVE_MODE)
     public void updateForShouldDefaultToObserveMode(boolean enabled) {
         synchronized (mLock) {
-            if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+            if (!isHostCardEmulationActivated()) {
                 NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
                 adapter.setObserveModeEnabled(enabled);
             } else {
@@ -293,6 +294,7 @@ public class HostEmulationManager {
         if (service != null) {
             sendPollingFramesToServiceLocked(service, new ArrayList<>(frames));
         } else {
+            mUnprocessedPollingFrames = new ArrayList<PollingFrame>();
             if (mPollingFramesToSend == null) {
                 mPollingFramesToSend = new HashMap<ComponentName, ArrayList<PollingFrame>>();
             }
@@ -328,7 +330,9 @@ public class HostEmulationManager {
                 mPendingPollingLoopFrames = new ArrayList<PollingFrame>(1);
             }
             for (PollingFrame pollingFrame : pollingFrames) {
-                if (pollingFrame.getType()
+                if (mUnprocessedPollingFrames != null) {
+                    mUnprocessedPollingFrames.add(pollingFrame);
+                } else if (pollingFrame.getType()
                         == PollingFrame.POLLING_LOOP_TYPE_F) {
                     Pair<Messenger, ComponentName> serviceAndName =
                         getForegroundServiceAndNameOrDefault();
@@ -442,9 +446,11 @@ public class HostEmulationManager {
                     sendFramesToServiceLocked(serviceAndName.first, serviceAndName.second,
                         mPendingPollingLoopFrames);
                     mPendingPollingLoopFrames = null;
+                } else {
+                    Log.i(TAG, "No preferred service to deliver polling frames to,"
+                    + " allowing transaction.");
+                    allowOneTransaction();
                 }
-            } else {
-                Log.d(TAG, "Dropping polling frames, no service available");
             }
         }
     }
@@ -461,7 +467,7 @@ public class HostEmulationManager {
      */
     public void onPreferredForegroundServiceChanged(int userId, ComponentName service) {
         synchronized (mLock) {
-            if (mState == STATE_IDLE || mState == STATE_POLLING_LOOP) {
+            if (!isHostCardEmulationActivated()) {
                 Log.d(TAG, "onPreferredForegroundServiceChanged, resetting active service");
                 resetActiveService();
             }
@@ -478,7 +484,7 @@ public class HostEmulationManager {
         if (!fieldOn) {
             mHandler.postDelayed(mReturnToIdleStateRunnable, FIELD_OFF_IDLE_DELAY_MS);
         }
-        if (!fieldOn && mEnableObserveModeOnFieldOff &&  mEnableObserveModeAfterTransaction) {
+        if (!fieldOn && mEnableObserveModeOnFieldOff && mEnableObserveModeAfterTransaction) {
             Log.d(TAG, "re-enabling observe mode after NFC Field off.");
             mEnableObserveModeAfterTransaction = false;
             mEnableObserveModeOnFieldOff = false;
@@ -738,6 +744,12 @@ public class HostEmulationManager {
             if (mStatsdUtils != null) {
                 mStatsdUtils.logCardEmulationDeactivatedEvent();
             }
+        }
+    }
+
+    public boolean isHostCardEmulationActivated() {
+        synchronized (mLock) {
+            return mState != STATE_IDLE && mState != STATE_POLLING_LOOP;
         }
     }
 
@@ -1040,6 +1052,12 @@ public class HostEmulationManager {
                 } else if (mPollingFramesToSend != null && mPollingFramesToSend.containsKey(name)) {
                     sendPollingFramesToServiceLocked(mService, mPollingFramesToSend.get(name));
                     mPollingFramesToSend.remove(name);
+                    if (android.nfc.Flags.nfcReadPollingLoop()
+                        && mUnprocessedPollingFrames != null) {
+                        ArrayList unprocessedPollingFrames = mUnprocessedPollingFrames;
+                        mUnprocessedPollingFrames = null;
+                        onPollingLoopDetected(unprocessedPollingFrames);
+                    }
                 } else {
                     Log.d(TAG, "bound with nothing to send");
                 }

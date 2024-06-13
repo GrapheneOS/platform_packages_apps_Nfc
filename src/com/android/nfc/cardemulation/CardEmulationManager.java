@@ -1118,4 +1118,8 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     public boolean isPreferredServicePackageNameForUser(String packageName, int userId) {
         return mAidCache.isPreferredServicePackageNameForUser(packageName, userId);
     }
+
+    public boolean isHostCardEmulationActivated() {
+        return mHostEmulationManager.isHostCardEmulationActivated();
+    }
 }
