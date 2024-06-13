@@ -404,6 +404,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     boolean mIsRequestUnlockShowed;
     boolean mIsRecovering;
     boolean mIsNfcUserRestricted;
+    boolean mIsNfcUserChangeRestricted;
     boolean mIsWatchType;
     boolean mPendingPowerStateUpdate;
     boolean mIsWlcCapable;
@@ -673,6 +674,13 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 UserManager.DISALLOW_NEAR_FIELD_COMMUNICATION_RADIO);
     }
 
+    /** Returns true if NFC state change by user is restricted. */
+    private boolean isNfcUserChangeRestricted() {
+        return mUserManager.getUserRestrictions().getBoolean(
+                UserManager.DISALLOW_CHANGE_NEAR_FIELD_COMMUNICATION_RADIO
+        );
+    }
+
     boolean shouldEnableNfc() {
         return getNfcOnSetting() && !mNfcInjector.isSatelliteModeOn() && !isNfcUserRestricted();
     }
@@ -878,6 +886,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         }
 
         mIsNfcUserRestricted = isNfcUserRestricted();
+        mIsNfcUserChangeRestricted = isNfcUserChangeRestricted();
         mContext.registerReceiver(
                 new BroadcastReceiver() {
                     @Override
@@ -888,6 +897,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         Log.i(TAG, "Disallow NFC user restriction changed from "
                             + mIsNfcUserRestricted + " to " + !mIsNfcUserRestricted + ".");
                         mIsNfcUserRestricted = !mIsNfcUserRestricted;
+                        mIsNfcUserChangeRestricted = isNfcUserChangeRestricted();
                         if (shouldEnableNfc()) {
                             new EnableDisableTask().execute(TASK_ENABLE);
                         } else {
@@ -1645,10 +1655,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean enable(String pkg) throws RemoteException {
+            boolean isDeviceOrProfileOwner = isDeviceOrProfileOwner(Binder.getCallingUid(), pkg);
             if (!NfcPermissions.checkAdminPermissions(mContext)
-                    && !isDeviceOrProfileOwner(Binder.getCallingUid(), pkg)) {
+                    && !isDeviceOrProfileOwner) {
                 throw new SecurityException(
                         "caller is not a system app, device owner or profile owner!");
+            }
+            if (!isDeviceOrProfileOwner && mIsNfcUserChangeRestricted) {
+                throw new SecurityException("Change nfc state by system app is not allowed!");
             }
 
             Log.i(TAG, "Enabling Nfc service. Package:" + pkg);
@@ -1678,10 +1692,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         @Override
         public boolean disable(boolean saveState, String pkg) throws RemoteException {
+            boolean isDeviceOrProfileOwner = isDeviceOrProfileOwner(Binder.getCallingUid(), pkg);
             if (!NfcPermissions.checkAdminPermissions(mContext)
-                    && !isDeviceOrProfileOwner(Binder.getCallingUid(), pkg)) {
+                    && !isDeviceOrProfileOwner) {
                 throw new SecurityException(
                         "caller is not a system app, device owner or profile owner!");
+            }
+            if (!isDeviceOrProfileOwner && mIsNfcUserChangeRestricted) {
+                throw new SecurityException("Change nfc state by system app is not allowed!");
             }
 
             Log.i(TAG, "Disabling Nfc service. Package:" + pkg);
@@ -2628,6 +2646,20 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             if (DBG) Log.i(TAG, "clearPreference");
             NfcPermissions.enforceAdminPermissions(mContext);
             // TODO: Implement this.
+        }
+
+        @Override
+        public void setScreenState() throws RemoteException {
+            if (DBG) Log.i(TAG, "setScreenState");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            applyScreenState(mScreenStateHelper.checkScreenState());
+        }
+
+        @Override
+        public void checkFirmware() throws RemoteException {
+            if (DBG) Log.i(TAG, "checkFirmware");
+            NfcPermissions.enforceAdminPermissions(mContext);
+            mDeviceHost.checkFirmware();
         }
 
         // TODO(b/321304762): Add the OEM extension API.

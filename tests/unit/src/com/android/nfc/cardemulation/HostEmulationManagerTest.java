@@ -70,6 +70,7 @@ import org.mockito.MockitoSession;
 import org.mockito.quality.Strictness;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
@@ -313,16 +314,6 @@ public class HostEmulationManagerTest {
         Assert.assertTrue(mHostEmulationManager.mEnableObserveModeAfterTransaction);
         Assert.assertTrue(frame1.getTriggeredAutoTransact());
         Assert.assertEquals(mHostEmulationManager.mState, HostEmulationManager.STATE_POLLING_LOOP);
-        verify(mMessanger).send(mMessageArgumentCaptor.capture());
-        Message message = mMessageArgumentCaptor.getValue();
-        Bundle bundle = message.getData();
-        Assert.assertEquals(message.what, HostApduService.MSG_POLLING_LOOP);
-        Assert.assertTrue(bundle.containsKey(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE));
-        ArrayList<PollingFrame> sentFrames = bundle
-                .getParcelableArrayList(HostApduService.KEY_POLLING_LOOP_FRAMES_BUNDLE);
-        Assert.assertTrue(sentFrames.contains(frame1));
-        Assert.assertTrue(sentFrames.contains(frame2));
-        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
     }
 
     @Test
@@ -1109,7 +1100,9 @@ public class HostEmulationManagerTest {
         IBinder service = mock(IBinder.class);
         mHostEmulationManager.mState = HostEmulationManager.STATE_W4_SELECT;
         mHostEmulationManager.mSelectApdu = null;
-        mHostEmulationManager.mPendingPollingLoopFrames = new ArrayList<>(List.of());
+        mHostEmulationManager.mPollingFramesToSend = new HashMap();
+        mHostEmulationManager.mPollingFramesToSend.put(WALLET_PAYMENT_SERVICE,
+                new ArrayList<>(List.of()));
 
         mHostEmulationManager.getServiceConnection().onServiceConnected(WALLET_PAYMENT_SERVICE,
                 service);
@@ -1118,7 +1111,7 @@ public class HostEmulationManagerTest {
         Assert.assertNotNull(mHostEmulationManager.mService);
         Assert.assertTrue(mHostEmulationManager.mServiceBound);
         Assert.assertEquals(HostEmulationManager.STATE_W4_SELECT, mHostEmulationManager.getState());
-        Assert.assertNull(mHostEmulationManager.mPendingPollingLoopFrames);
+        Assert.assertNull(mHostEmulationManager.mPollingFramesToSend.get(WALLET_PAYMENT_SERVICE));
         verify(service).transact(eq(1), any(), eq(null), eq(1));
     }
 

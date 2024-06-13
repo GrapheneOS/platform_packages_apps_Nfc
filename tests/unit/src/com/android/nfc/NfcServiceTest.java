@@ -251,4 +251,21 @@ public final class NfcServiceTest {
 
         Assert.assertFalse(mNfcService.mNfcAdapter.isObserveModeSupported());
     }
+
+    @Test
+    public void testEnableNfc_changeStateRestricted() throws Exception {
+        when(mUserRestrictions.getBoolean(
+                UserManager.DISALLOW_CHANGE_NEAR_FIELD_COMMUNICATION_RADIO)).thenReturn(true);
+        mNfcService.mNfcAdapter.enable(PKG_NAME);
+        assert(mNfcService.mState == NfcAdapter.STATE_OFF);
+    }
+
+    @Test
+    public void testDisableNfc_changeStateRestricted() throws Exception {
+        enableAndVerify();
+        when(mUserRestrictions.getBoolean(
+                UserManager.DISALLOW_CHANGE_NEAR_FIELD_COMMUNICATION_RADIO)).thenReturn(true);
+        mNfcService.mNfcAdapter.disable(true, PKG_NAME);
+        assert(mNfcService.mState == NfcAdapter.STATE_ON);
+    }
 }
