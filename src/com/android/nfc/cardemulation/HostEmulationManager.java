@@ -105,6 +105,7 @@ public class HostEmulationManager {
     static final String NFC_PACKAGE = "com.android.nfc";
     static final String DATA_KEY = "data";
     static final int FIELD_OFF_IDLE_DELAY_MS = 2000;
+    static final int RE_ENABLE_OBSERVE_MODE_DELAY_MS = 2000;
 
     final Context mContext;
     final RegisteredAidCache mAidCache;
@@ -176,6 +177,21 @@ public class HostEmulationManager {
                 mPollingLoopState = PollingLoopState.EVALUATING_POLLING_LOOP;
                 resetActiveService();
                 mState = STATE_IDLE;
+            }
+        }
+    };
+
+    // Runnable to re-enable observe mode after a transaction. This should be delayed after
+    // HCE is deactivated to ensure we don't receive another select AID.
+    Runnable mEnableObserveModeAfterTransactionRunnable = new Runnable() {
+        @Override
+        public void run() {
+            synchronized (mLock) {
+              Log.d(TAG, "re-enabling observe mode after transaction.");
+              mEnableObserveModeAfterTransaction = false;
+              mEnableObserveModeOnFieldOff = false;
+              NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
+              adapter.setObserveModeEnabled(true);
             }
         }
     };
@@ -485,15 +501,14 @@ public class HostEmulationManager {
             mHandler.postDelayed(mReturnToIdleStateRunnable, FIELD_OFF_IDLE_DELAY_MS);
         }
         if (!fieldOn && mEnableObserveModeOnFieldOff && mEnableObserveModeAfterTransaction) {
-            Log.d(TAG, "re-enabling observe mode after NFC Field off.");
-            mEnableObserveModeAfterTransaction = false;
-            mEnableObserveModeOnFieldOff = false;
-            NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-            mHandler.post(() -> adapter.setObserveModeEnabled(true));
+            Log.d(TAG, "Field off detected, will re-enable observe mode.");
+            mHandler.postDelayed(mEnableObserveModeAfterTransactionRunnable,
+                RE_ENABLE_OBSERVE_MODE_DELAY_MS);
         }
     }
 
     public void onHostEmulationActivated() {
+        Log.d(TAG, "notifyHostEmulationActivated");
         synchronized (mLock) {
             mHandler.removeCallbacks(mReturnToIdleStateRunnable);
             // Regardless of what happens, if we're having a tap again
@@ -534,6 +549,7 @@ public class HostEmulationManager {
     public void onHostEmulationData(byte[] data) {
         Log.d(TAG, "notifyHostEmulationData");
         mHandler.removeCallbacks(mReturnToIdleStateRunnable);
+        mHandler.removeCallbacks(mEnableObserveModeAfterTransactionRunnable);
         String selectAid = findSelectAid(data);
         ComponentName resolvedService = null;
         ApduServiceInfo resolvedServiceInfo = null;
@@ -735,10 +751,9 @@ public class HostEmulationManager {
             mPollingLoopState = PollingLoopState.EVALUATING_POLLING_LOOP;
 
             if (mEnableObserveModeAfterTransaction) {
-                Log.d(TAG, "re-enabling observe mode after HCE deactivation");
-                mEnableObserveModeAfterTransaction = false;
-                NfcAdapter adapter = NfcAdapter.getDefaultAdapter(mContext);
-                mHandler.post(() -> adapter.setObserveModeEnabled(true));
+                Log.d(TAG, "HCE deactivated, will re-enable observe mode.");
+                mHandler.postDelayed(mEnableObserveModeAfterTransactionRunnable,
+                    RE_ENABLE_OBSERVE_MODE_DELAY_MS);
             }
 
             if (mStatsdUtils != null) {
@@ -756,6 +771,8 @@ public class HostEmulationManager {
     public void onOffHostAidSelected() {
         Log.d(TAG, "notifyOffHostAidSelected");
         synchronized (mLock) {
+            mHandler.removeCallbacks(mReturnToIdleStateRunnable);
+            mHandler.removeCallbacks(mEnableObserveModeAfterTransactionRunnable);
             if (mState != STATE_XFER || mActiveService == null) {
                 // Don't bother telling, we're not bound to any service yet
             } else {

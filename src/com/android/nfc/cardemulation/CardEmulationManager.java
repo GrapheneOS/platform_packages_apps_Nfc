@@ -1076,7 +1076,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         }
     }
 
-    private void updateForShouldDefaultToObserveMode(int userId) {
+    public void updateForShouldDefaultToObserveMode(int userId) {
         long token = Binder.clearCallingIdentity();
         try {
             if (!android.nfc.Flags.nfcObserveMode()) {

@@ -1503,6 +1503,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     return;
                 }
                 mState = newState;
+                if (mState == NfcAdapter.STATE_ON && mCardEmulationManager != null) {
+                    mCardEmulationManager.updateForShouldDefaultToObserveMode(getUserId());
+                }
                 if (mAlwaysOnState != NfcAdapter.STATE_TURNING_ON) {
                     Intent intent = new Intent(NfcAdapter.ACTION_ADAPTER_STATE_CHANGED);
                     intent.setFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);

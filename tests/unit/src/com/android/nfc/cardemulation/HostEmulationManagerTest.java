@@ -955,9 +955,7 @@ public class HostEmulationManagerTest {
         Assert.assertEquals(-1, mHostEmulationManager.mActiveServiceUserId);
         Assert.assertEquals(-1, mHostEmulationManager.mServiceUserId);
         Assert.assertEquals(HostEmulationManager.STATE_IDLE, mHostEmulationManager.getState());
-        Assert.assertFalse(mHostEmulationManager.mEnableObserveModeAfterTransaction);
         Assert.assertFalse(mHostEmulationManager.mServiceBound);
-        verify(mNfcAdapter).setObserveModeEnabled(eq(true));
         verify(mMessanger).send(mMessageArgumentCaptor.capture());
         Message message = mMessageArgumentCaptor.getValue();
         Assert.assertEquals(message.what, HostApduService.MSG_DEACTIVATED);
@@ -965,11 +963,16 @@ public class HostEmulationManagerTest {
         verify(mContext).getSystemService(eq(PowerManager.class));
         verify(mContext).getSystemService(eq(KeyguardManager.class));
         verify(mContext).unbindService(mServiceConnectionArgumentCaptor.capture());
-        verifyNoMoreInteractions(mMessanger);
         Assert.assertEquals(mHostEmulationManager.getServiceConnection(),
                 mServiceConnectionArgumentCaptor.getValue());
-        verifyNoMoreInteractions(mContext);
         verify(mStatsUtils).logCardEmulationDeactivatedEvent();
+
+        mTestableLooper.moveTimeForward(5000);
+        mTestableLooper.processAllMessages();
+        verify(mNfcAdapter).setObserveModeEnabled(eq(true));
+        Assert.assertFalse(mHostEmulationManager.mEnableObserveModeAfterTransaction);
+        verifyNoMoreInteractions(mMessanger);
+        verifyNoMoreInteractions(mContext);
     }
 
     @Test
