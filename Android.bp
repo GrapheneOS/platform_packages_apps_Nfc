@@ -76,6 +76,9 @@ android_app {
         // does not ship one in /product
         "libnfc-nci.conf-default",
     ],
+    lint: {
+        baseline_filename: "lint-baseline-nfcnci.xml",
+    },
 }
 
 // NCI Configuration embedded in NFC apex.
