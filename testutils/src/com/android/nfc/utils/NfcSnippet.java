@@ -16,25 +16,22 @@
  */
 package com.android.nfc.utils;
 
-import static android.content.Context.RECEIVER_EXPORTED;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.nfc.NfcAdapter;
+import android.os.RemoteException;
+import android.util.Log;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.UiDevice;
 
 import com.google.android.mobly.snippet.Snippet;
 import com.google.android.mobly.snippet.event.SnippetEvent;
-
-import com.google.android.mobly.snippet.rpc.AsyncRpc;
 import com.google.android.mobly.snippet.rpc.Rpc;
-
-import android.nfc.NfcAdapter;
-import android.util.Log;
-import android.os.RemoteException;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +41,17 @@ public abstract class NfcSnippet implements Snippet {
     protected final Context mContext = InstrumentationRegistry.getInstrumentation().getContext();
     private final UiDevice mDevice =
             UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+
+    @Rpc(description = "Checks if NFC supported on device")
+    public boolean isNfcSupported() {
+        return mContext.getPackageManager().hasSystemFeature(PackageManager.FEATURE_NFC);
+    }
+
+    @Rpc(description = "Checks if NFC HCE (host-card emulation) supported on device")
+    public boolean isNfcHceSupported() {
+        return mContext.getPackageManager()
+                .hasSystemFeature(PackageManager.FEATURE_NFC_HOST_CARD_EMULATION);
+    }
 
     /** Turns device screen off */
     @Rpc(description = "Turns device screen off")

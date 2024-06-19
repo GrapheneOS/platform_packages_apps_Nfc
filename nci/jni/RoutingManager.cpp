@@ -729,9 +729,6 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
   static const char fn[] = "RoutingManager::updateEeTechRouteSetting";
   tNFA_TECHNOLOGY_MASK allSeTechMask = 0x00;
 
-  if (mDefaultOffHostRoute == 0 && mDefaultFelicaRoute == 0)
-    return allSeTechMask;
-
   LOG(DEBUG) << fn << ": Number of EE is " << (int)mEeInfo.num_ee;
 
   tNFA_STATUS nfaStat;
@@ -788,6 +785,22 @@ tNFA_TECHNOLOGY_MASK RoutingManager::updateEeTechRouteSetting() {
 
       allSeTechMask |= seTechMask;
     }
+  }
+
+  if (mDefaultOffHostRoute == NFC_DH_ID) {
+    tNFA_TECHNOLOGY_MASK hostTechMask = 0;
+    LOG(DEBUG) << StringPrintf(
+        "%s: Setting technology route to host with A and B type", fn);
+    hostTechMask |= NFA_TECHNOLOGY_MASK_A;
+    hostTechMask |= NFA_TECHNOLOGY_MASK_B;
+    hostTechMask &= mHostListenTechMask;
+    nfaStat = NFA_EeSetDefaultTechRouting(NFC_DH_ID, hostTechMask, 0, 0,
+                                          mSecureNfcEnabled ? 0 : hostTechMask,
+                                          mSecureNfcEnabled ? 0 : hostTechMask,
+                                          mSecureNfcEnabled ? 0 : hostTechMask);
+    if (nfaStat != NFA_STATUS_OK)
+      LOG(ERROR) << fn << "Failed to configure DH technology routing.";
+    return hostTechMask;
   }
 
   // Clear DH technology route on NFC-A
