@@ -43,6 +43,7 @@ import android.os.PowerManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.sysprop.NfcProperties;
+import android.util.ArraySet;
 import android.util.Log;
 import android.util.Pair;
 import android.util.proto.ProtoOutputStream;
@@ -131,7 +132,7 @@ public class HostEmulationManager {
     Map<ComponentName, ArrayList<PollingFrame>> mPollingFramesToSend = null;
     private Map<Integer, Map<String, List<ApduServiceInfo>>> mPollingLoopFilters;
     private Map<Integer, Map<Pattern, List<ApduServiceInfo>>> mPollingLoopPatternFilters;
-    AutoDisableObserveMode mAutoDisableObserveMode = null;
+    AutoDisableObserveModeRunnable mAutoDisableObserveModeRunnable = null;
 
     // Variables below are for a payment service,
     // which is typically bound persistently to improve on
@@ -305,18 +306,19 @@ public class HostEmulationManager {
 
     public void onObserveModeStateChange(boolean enabled) {
         synchronized(mLock) {
-            if (!enabled && mAutoDisableObserveMode != null) {
-                mHandler.removeCallbacks(mAutoDisableObserveMode);
-                mAutoDisableObserveMode = null;
+            if (!enabled && mAutoDisableObserveModeRunnable != null) {
+                mHandler.removeCallbacks(mAutoDisableObserveModeRunnable);
+                mAutoDisableObserveModeRunnable = null;
             }
         }
     }
 
 
-    class AutoDisableObserveMode implements Runnable {
-        ComponentName mComponentName;
-        AutoDisableObserveMode(ComponentName componentName) {
-            mComponentName = componentName;
+    class AutoDisableObserveModeRunnable implements Runnable {
+        Set<ComponentName> mComponentNames;
+        AutoDisableObserveModeRunnable(ComponentName componentName) {
+            mComponentNames = new ArraySet<>(1);
+            mComponentNames.add(componentName);
         }
 
         @Override
@@ -326,14 +328,19 @@ public class HostEmulationManager {
                 if (!adapter.isObserveModeEnabled()) {
                     return;
                 }
-                if (isPackageInForeground(mComponentName)) {
+                if (arePackagesInForeground()) {
                     return;
                 }
                 allowOneTransaction();
             }
         }
 
-        boolean isPackageInForeground(ComponentName componentName) {
+
+        void addServiceToList(ComponentName service) {
+            mComponentNames.add(service);
+        }
+
+        boolean arePackagesInForeground() {
             ActivityManager am = mContext.getSystemService(ActivityManager.class);
             if (am == null) {
                 return false;
@@ -348,9 +355,12 @@ public class HostEmulationManager {
             }
             for (Integer uid : foregroundUtils.getForegroundUids()) {
                 for (String packageName :  packageManager.getPackagesForUid(uid)) {
-                    if (packageName != null
-                        && componentName.getPackageName().equals(packageName)) {
-                        return true;
+                    if (packageName != null) {
+                        for (ComponentName componentName : mComponentNames) {
+                            if (componentName.getPackageName().equals(packageName)) {
+                                return true;
+                            }
+                        }
                     }
                 }
             }
@@ -378,9 +388,13 @@ public class HostEmulationManager {
                 mPollingFramesToSend.put(name, new ArrayList<>(frames));
             }
         }
-        if (Flags.autoDisableObserveMode() && mAutoDisableObserveMode == null) {
-            mAutoDisableObserveMode = new AutoDisableObserveMode(name);
-            mHandler.postDelayed(mAutoDisableObserveMode, 3000);
+        if (Flags.autoDisableObserveMode()) {
+            if (mAutoDisableObserveModeRunnable == null) {
+                mAutoDisableObserveModeRunnable = new AutoDisableObserveModeRunnable(name);
+                mHandler.postDelayed(mAutoDisableObserveModeRunnable, 3000);
+            } else {
+                mAutoDisableObserveModeRunnable.addServiceToList(name);
+            }
         }
     }
 
@@ -812,9 +826,9 @@ public class HostEmulationManager {
             mState = STATE_IDLE;
             mPollingLoopState = PollingLoopState.EVALUATING_POLLING_LOOP;
 
-            if (mAutoDisableObserveMode != null) {
-                mHandler.removeCallbacks(mAutoDisableObserveMode);
-                mAutoDisableObserveMode = null;
+            if (mAutoDisableObserveModeRunnable != null) {
+                mHandler.removeCallbacks(mAutoDisableObserveModeRunnable);
+                mAutoDisableObserveModeRunnable = null;
             }
 
             if (mEnableObserveModeAfterTransaction) {

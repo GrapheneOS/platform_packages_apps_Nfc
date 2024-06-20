@@ -36,6 +36,7 @@ android_test {
 
     test_suites: [
         "device-tests",
+        "device-pixel-tests",
         "device-platinum-tests",
     ],
 
