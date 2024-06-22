@@ -315,10 +315,10 @@ public class HostEmulationManager {
 
 
     class AutoDisableObserveModeRunnable implements Runnable {
-        Set<ComponentName> mComponentNames;
+        Set<String> mServicePackageNames;
         AutoDisableObserveModeRunnable(ComponentName componentName) {
-            mComponentNames = new ArraySet<>(1);
-            mComponentNames.add(componentName);
+            mServicePackageNames = new ArraySet<>(1);
+            addServiceToList(componentName);
         }
 
         @Override
@@ -331,13 +331,15 @@ public class HostEmulationManager {
                 if (arePackagesInForeground()) {
                     return;
                 }
+                Log.w(TAG, "Observe mode not disabled and no application from the following " +
+                    "packages are in the foreground: " + String.join(", ", mServicePackageNames));
                 allowOneTransaction();
             }
         }
 
 
         void addServiceToList(ComponentName service) {
-            mComponentNames.add(service);
+            mServicePackageNames.add(service.getPackageName());
         }
 
         boolean arePackagesInForeground() {
@@ -356,8 +358,8 @@ public class HostEmulationManager {
             for (Integer uid : foregroundUtils.getForegroundUids()) {
                 for (String packageName :  packageManager.getPackagesForUid(uid)) {
                     if (packageName != null) {
-                        for (ComponentName componentName : mComponentNames) {
-                            if (componentName.getPackageName().equals(packageName)) {
+                        for (String servicePackageName : mServicePackageNames) {
+                            if (Objects.equals(servicePackageName, packageName)) {
                                 return true;
                             }
                         }
