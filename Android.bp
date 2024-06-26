@@ -78,6 +78,9 @@ android_app {
     ],
     lint: {
         baseline_filename: "lint-baseline-nfcnci.xml",
+        warning_checks: [
+            "FlaggedApi",
+        ],
     },
 }
 
