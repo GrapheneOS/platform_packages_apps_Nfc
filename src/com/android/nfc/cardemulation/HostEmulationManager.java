@@ -1125,7 +1125,9 @@ public class HostEmulationManager {
         public void onBindingDied(ComponentName name) {
             Log.i(TAG, "Payment service died: " + name);
             synchronized (mLock) {
-                bindPaymentServiceLocked(mPaymentServiceUserId, mLastBoundPaymentServiceName);
+                if (mPaymentServiceUserId >= 0) {
+                    bindPaymentServiceLocked(mPaymentServiceUserId, mLastBoundPaymentServiceName);
+                }
             }
         }
     };
