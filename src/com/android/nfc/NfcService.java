@@ -112,6 +112,8 @@ import com.android.nfc.handover.HandoverDataParser;
 import com.android.nfc.proto.NfcEventProto;
 import com.android.nfc.wlc.NfcCharging;
 
+import com.google.protobuf.ByteString;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -483,6 +485,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     public void onHostCardEmulationActivated(int technology) {
         if (mCardEmulationManager != null) {
             mCardEmulationManager.onHostCardEmulationActivated(technology);
+            if (android.nfc.Flags.nfcPersistLog()) {
+                mNfcEventLog.logEvent(
+                        NfcEventProto.EventType.newBuilder()
+                                .setHostCardEmulationStateChange(
+                                        NfcEventProto.NfcHostCardEmulationStateChange.newBuilder()
+                                                .setTechnology(technology)
+                                                .setEnable(true)
+                                                .build())
+                                .build());
+            }
         }
     }
 
@@ -490,6 +502,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     public void onHostCardEmulationData(int technology, byte[] data) {
         if (mCardEmulationManager != null) {
             mCardEmulationManager.onHostCardEmulationData(technology, data);
+            if (android.nfc.Flags.nfcPersistLog()) {
+                mNfcEventLog.logEvent(
+                        NfcEventProto.EventType.newBuilder()
+                                .setHostCardEmulationData(
+                                        NfcEventProto.NfcHostCardEmulationData.newBuilder()
+                                                .setTechnology(technology)
+                                                .setData(ByteString.copyFrom(data))
+                                                .build())
+                                .build());
+            }
         }
     }
 
@@ -497,6 +519,16 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     public void onHostCardEmulationDeactivated(int technology) {
         if (mCardEmulationManager != null) {
             mCardEmulationManager.onHostCardEmulationDeactivated(technology);
+            if (android.nfc.Flags.nfcPersistLog()) {
+                mNfcEventLog.logEvent(
+                        NfcEventProto.EventType.newBuilder()
+                                .setHostCardEmulationStateChange(
+                                        NfcEventProto.NfcHostCardEmulationStateChange.newBuilder()
+                                                .setTechnology(technology)
+                                                .setEnable(false)
+                                                .build())
+                                .build());
+            }
         }
     }
 
@@ -507,6 +539,15 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         if (mStatsdUtils != null) {
             mStatsdUtils.logFieldChanged(true, 0);
         }
+        if (android.nfc.Flags.nfcPersistLog()) {
+            mNfcEventLog.logEvent(
+                    NfcEventProto.EventType.newBuilder()
+                            .setRemoteFieldStateChange(
+                                    NfcEventProto.NfcRemoteFieldStateChange.newBuilder()
+                                            .setEnable(true)
+                                            .build())
+                            .build());
+        }
     }
 
     @Override
@@ -515,6 +556,15 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
         if (mStatsdUtils != null) {
             mStatsdUtils.logFieldChanged(false, 0);
+        }
+        if (android.nfc.Flags.nfcPersistLog()) {
+            mNfcEventLog.logEvent(
+                    NfcEventProto.EventType.newBuilder()
+                            .setRemoteFieldStateChange(
+                                    NfcEventProto.NfcRemoteFieldStateChange.newBuilder()
+                                            .setEnable(false)
+                                            .build())
+                            .build());
         }
     }
 
@@ -2106,6 +2156,21 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                         mDiscoveryTechParams.uid = callingUid;
                         mDiscoveryTechParams.binder = binder;
                         binder.linkToDeath(mDiscoveryTechDeathRecipient, 0);
+                        if (android.nfc.Flags.nfcPersistLog()) {
+                            mNfcEventLog.logEvent(
+                                    NfcEventProto.EventType.newBuilder()
+                                            .setDiscoveryTechnologyUpdate(NfcEventProto
+                                                    .NfcDiscoveryTechnologyUpdate.newBuilder()
+                                                    .setAppInfo(NfcEventProto.NfcAppInfo
+                                                            .newBuilder()
+                                                            .setPackageName(packageName)
+                                                            .setUid(callingUid)
+                                                            .build())
+                                                    .setPollTech(pollTech)
+                                                    .setListenTech(listenTech)
+                                                    .build())
+                                            .build());
+                        }
                     } catch (RemoteException e) {
                         Log.e(TAG, "Remote binder has already died.");
                         return;
