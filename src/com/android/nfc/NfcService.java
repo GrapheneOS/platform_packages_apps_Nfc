@@ -3781,6 +3781,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                 }
 
                 case MSG_NDEF_TAG:
+                    if (!isNfcEnabled())
+                        break;
                     if (DBG) Log.d(TAG, "Tag detected, notifying applications");
                     TagEndpoint tag = (TagEndpoint) msg.obj;
                     byte[] debounceTagUid;
