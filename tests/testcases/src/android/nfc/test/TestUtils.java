@@ -27,6 +27,8 @@ import android.content.pm.PackageManager;
 import android.nfc.NfcAdapter;
 import android.nfc.cardemulation.CardEmulation;
 import android.nfc.cardemulation.PollingFrame;
+import android.nfc.cardemulation.PollingFrame.PollingFrameType;
+import android.os.Bundle;
 import android.os.PowerManager;
 import android.os.UserManager;
 import android.view.KeyEvent;
@@ -156,4 +158,47 @@ public class TestUtils {
       }
     }
   }
+
+  static List<PollingFrame> notifyPollingLoopAndWait(
+      ArrayList<PollingFrame> frames, String serviceName, Context context) {
+    NfcAdapter adapter = NfcAdapter.getDefaultAdapter(context);
+    sCurrentPollLoopReceiver = new PollLoopReceiver(frames, serviceName);
+    for (PollingFrame frame : frames) {
+      adapter.notifyPollingLoop(frame);
+    }
+    synchronized (sCurrentPollLoopReceiver) {
+      try {
+        sCurrentPollLoopReceiver.wait(5000);
+      } catch (InterruptedException ie) {
+        Assert.assertNull(ie);
+      }
+    }
+    sCurrentPollLoopReceiver.test();
+    Assert.assertEquals(frames.size(), sCurrentPollLoopReceiver.mFrameIndex);
+    List<PollingFrame> receivedFrames = sCurrentPollLoopReceiver.mReceivedFrames;
+    sCurrentPollLoopReceiver = null;
+    return receivedFrames;
+  }
+
+  static PollingFrame createFrame(@PollingFrameType int type) {
+    if (type == PollingFrame.POLLING_LOOP_TYPE_ON || type == PollingFrame.POLLING_LOOP_TYPE_OFF) {
+      return new PollingFrame(
+          type,
+          new byte[] {((type == PollingFrame.POLLING_LOOP_TYPE_ON) ? (byte) 0x01 : (byte) 0x00)},
+          8,
+          0,
+          false);
+    }
+    return new PollingFrame(type, null, 8, 0, false);
+  }
+
+  static PollingFrame createFrameWithData(@PollingFrameType int type, byte[] data) {
+    return new PollingFrame(type, data, 8, (long) Integer.MAX_VALUE + 1L, false);
+  }
+
+  public abstract static class CommandApduProcessor {
+    public abstract byte[] processCommandApdu(String serviceName, byte[] apdu, Bundle extras);
+  }
+
+  static CommandApduProcessor sCurrentCommandApduProcessor = null;
 }

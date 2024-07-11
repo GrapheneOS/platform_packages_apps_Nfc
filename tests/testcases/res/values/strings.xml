@@ -15,4 +15,5 @@
 -->
 <resources>
     <string name="CustomPaymentService">Custom Nfc Test Service</string>
+    <string name="SecondPaymentService">Second Nfc Test Service</string>
 </resources>

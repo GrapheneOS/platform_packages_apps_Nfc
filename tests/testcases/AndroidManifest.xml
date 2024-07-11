@@ -36,6 +36,14 @@
             <meta-data android:name="android.nfc.cardemulation.host_apdu_service"
                        android:resource="@xml/custom_aid_list"/>
         </service>
+        <service android:name=".SecondHostApduService" android:exported="true"
+                 android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+            </intent-filter>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service"
+                       android:resource="@xml/second_aid_list"/>
+        </service>
         <activity android:name="android.nfc.test.NfcFCardEmulationActivity"
              android:exported="false">
         </activity>

@@ -1056,6 +1056,22 @@ void static nfaVSCallback(uint8_t event, uint16_t param_len, uint8_t* p_param) {
   }
 }
 
+static void nfcManager_injectNtf(JNIEnv* e, jobject, jbyteArray data) {
+  ScopedByteArrayRO bytes(e, data);
+  size_t bufLen = bytes.size();
+  tNFC_HAL_EVT_MSG* p_msg;
+  p_msg = (tNFC_HAL_EVT_MSG*)GKI_getbuf(sizeof(tNFC_HAL_EVT_MSG) + bufLen + 1);
+  if (p_msg != NULL) {
+    p_msg->hdr.len = bufLen + 3;
+    p_msg->hdr.event = BT_EVT_TO_NFC_NCI;
+    p_msg->hdr.offset = sizeof(tNFC_HAL_EVT_MSG) - 7;
+    p_msg->hdr.layer_specific = 0;
+    memcpy(((uint8_t*)p_msg) + sizeof(tNFC_HAL_EVT_MSG) + 1, bytes.get(),
+           bufLen);
+    GKI_send_msg(NFC_TASK, NFC_MBOX_ID, p_msg);
+  }
+}
+
 static jboolean isObserveModeSupported(JNIEnv* e, jobject o) {
   ScopedLocalRef<jclass> cls(e, e->GetObjectClass(o));
   jmethodID isSupported =
@@ -2267,6 +2283,7 @@ static JNINativeMethod gMethods[] = {
     {"getProprietaryCaps", "()[B", (void*)nfcManager_getProprietaryCaps},
     {"enableVendorNciNotifications", "(Z)V",
      (void*)ncfManager_nativeEnableVendorNciNotifications},
+    {"injectNtf", "([B)V", (void*)nfcManager_injectNtf},
 };
 
 /*******************************************************************************

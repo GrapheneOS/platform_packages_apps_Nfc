@@ -16,6 +16,7 @@
 
 package android.nfc.test;
 
+import static android.nfc.test.TestUtils.sCurrentCommandApduProcessor;
 import static android.nfc.test.TestUtils.sCurrentPollLoopReceiver;
 
 import android.nfc.cardemulation.*;
@@ -34,6 +35,10 @@ public class CustomHostApduService extends HostApduService {
 
   @Override
   public byte[] processCommandApdu(byte[] apdu, Bundle extras) {
+    if (sCurrentCommandApduProcessor != null) {
+      return sCurrentCommandApduProcessor.processCommandApdu(this.getClass().getName(),
+          apdu, extras);
+    }
     return new byte[0];
   }
 

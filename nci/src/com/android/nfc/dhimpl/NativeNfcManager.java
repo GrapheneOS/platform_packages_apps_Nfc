@@ -169,6 +169,13 @@ public class NativeNfcManager implements DeviceHost {
 
     public native int doRegisterT3tIdentifier(byte[] t3tIdentifier);
 
+    /**
+     * Injects a NTF to the HAL.
+     *
+     * This is only used for testing.
+     */
+    public native void injectNtf(byte[] data);
+
     @Override
     public boolean isObserveModeSupported() {
         if (!android.nfc.Flags.nfcObserveMode()) {
