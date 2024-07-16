@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="CustomPaymentService" msgid="8078913594613837603">"ບໍລິການທົດສອບ Nfc ແບບກຳນົດເອງ"</string>
+    <string name="SecondPaymentService" msgid="1232932903544648990">"ບໍລິການທົດສອບ NFC ເທື່ອທີສອງ"</string>
 </resources>

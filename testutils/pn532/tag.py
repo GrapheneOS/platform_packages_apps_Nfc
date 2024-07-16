@@ -16,8 +16,26 @@
 
 from binascii import hexlify
 
+class Tag:
+    def __init__(self, target_id: int):
+        self.target_id = target_id
 
-class TypeATag:
+    def transact(self, command_apdus, response_apdus):
+        self.log.debug("Starting transaction with %d commands", len(command_apdus))
+        for i in range(len(command_apdus)):
+            rsp = self.pn532.transceive(bytearray([self.target_id]) + command_apdus[i])
+            if response_apdus[i] != "*" and rsp != response_apdus[i]:
+                self.log.error(
+                    "Unexpected APDU: received %s, expected %s",
+                    hexlify(rsp).decode(),
+                    hexlify(response_apdus[i]).decode(),
+                )
+                return False
+
+        return True
+
+
+class TypeATag(Tag):
 
     def __init__(
             self,
@@ -37,16 +55,16 @@ class TypeATag:
 
         self.log = pn532.log
 
-    def transact(self, command_apdus, response_apdus):
-        self.log.debug("Starting transaction with %d commands", len(command_apdus))
-        for i in range(len(command_apdus)):
-            rsp = self.pn532.transceive(bytearray([self.target_id]) + command_apdus[i])
-            if response_apdus[i] != "*" and rsp != response_apdus[i]:
-                self.log.error(
-                    "Unexpected APDU: received %s, expected %s",
-                    hexlify(rsp).decode(),
-                    hexlify(response_apdus[i]).decode(),
-                )
-                return False
+class TypeBTag(Tag):
 
-        return True
+    def __init__(
+            self,
+            pn532: "PN532",
+            target_id: int,
+            sensb_res: bytearray,
+    ):
+        self.pn532 = pn532
+        self.target_id = target_id
+        self.sensb_res = sensb_res
+
+        self.log = pn532.log

@@ -17,4 +17,5 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="CustomPaymentService" msgid="8078913594613837603">"សេវាកម្មធ្វើតេស្ត Nfc ផ្ទាល់ខ្លួន"</string>
+    <string name="SecondPaymentService" msgid="1232932903544648990">"សេវាកម្មធ្វើតេស្ត Nfc ទីពីរ"</string>
 </resources>

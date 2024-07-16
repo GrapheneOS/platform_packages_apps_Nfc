@@ -386,6 +386,69 @@ public class RegisteredAidCacheTest {
     }
 
     @Test
+    public void testAidConflictResolution_walletOtherServiceDisabled_nonDefaultServiceWins() {
+        setWalletRoleFlag(true);
+        supportPrefixAndSubset(false);
+        mRegisteredAidCache = new RegisteredAidCache(mContext, mWalletRoleObserver,
+                mAidRoutingManager);
+
+        List<ApduServiceInfo> apduServiceInfos = new ArrayList<>();
+        apduServiceInfos.add(createServiceInfoForAidRouting(
+                WALLET_PAYMENT_SERVICE,
+                true,
+                List.of(PAYMENT_AID_1, NON_PAYMENT_AID_1),
+                List.of(CardEmulation.CATEGORY_PAYMENT, CardEmulation.CATEGORY_OTHER),
+                false,
+                false,
+                USER_ID,
+                false));
+        apduServiceInfos.add(createServiceInfoForAidRouting(
+                PAYMENT_SERVICE,
+                true,
+                List.of(PAYMENT_AID_1, NON_PAYMENT_AID_1),
+                List.of(CardEmulation.CATEGORY_PAYMENT, CardEmulation.CATEGORY_OTHER),
+                false,
+                false,
+                USER_ID,
+                true));
+
+        mRegisteredAidCache.generateUserApduServiceInfoLocked(USER_ID, apduServiceInfos);
+        mRegisteredAidCache.generateServiceMapLocked(apduServiceInfos);
+        mRegisteredAidCache.onWalletRoleHolderChanged(WALLET_HOLDER_PACKAGE_NAME, USER_ID);
+        RegisteredAidCache.AidResolveInfo resolveInfo
+                = mRegisteredAidCache.resolveAid(NON_PAYMENT_AID_1);
+        Assert.assertEquals(resolveInfo.defaultService.getComponent(), PAYMENT_SERVICE);
+        Assert.assertEquals(resolveInfo.services.size(), 1);
+    }
+
+    @Test
+    public void testAidConflictResolution_walletOtherServiceDisabled_emptyServices() {
+        setWalletRoleFlag(true);
+        supportPrefixAndSubset(false);
+        mRegisteredAidCache = new RegisteredAidCache(mContext, mWalletRoleObserver,
+                mAidRoutingManager);
+
+        List<ApduServiceInfo> apduServiceInfos = new ArrayList<>();
+        apduServiceInfos.add(createServiceInfoForAidRouting(
+                WALLET_PAYMENT_SERVICE,
+                true,
+                List.of(PAYMENT_AID_1, NON_PAYMENT_AID_1),
+                List.of(CardEmulation.CATEGORY_PAYMENT, CardEmulation.CATEGORY_OTHER),
+                false,
+                false,
+                USER_ID,
+                false));
+
+        mRegisteredAidCache.generateUserApduServiceInfoLocked(USER_ID, apduServiceInfos);
+        mRegisteredAidCache.generateServiceMapLocked(apduServiceInfos);
+        mRegisteredAidCache.onWalletRoleHolderChanged(WALLET_HOLDER_PACKAGE_NAME, USER_ID);
+        RegisteredAidCache.AidResolveInfo resolveInfo
+                = mRegisteredAidCache.resolveAid(NON_PAYMENT_AID_1);
+        Assert.assertNull(resolveInfo.defaultService);
+        Assert.assertTrue(resolveInfo.services.isEmpty());
+    }
+
+    @Test
     public void testOnServicesUpdated_walletRoleEnabled() {
         setWalletRoleFlag(true);
         supportPrefixAndSubset(false);

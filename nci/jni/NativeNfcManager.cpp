@@ -984,9 +984,7 @@ void static nfaVSCallback(uint8_t event, uint16_t param_len, uint8_t* p_param) {
         case NCI_ANDROID_GET_CAPS: {
           gVSCmdStatus = p_param[4];
           SyncEventGuard guard(gNfaVsCommand);
-          u_int16_t android_version = *(u_int16_t*)&p_param[5];
-          u_int8_t len = p_param[7];
-          gCaps.assign(p_param + 8, p_param + 8 + len);
+          gCaps.assign(p_param + 8, p_param + param_len);
           gNfaVsCommand.notifyOne();
         } break;
         case NCI_ANDROID_POLLING_FRAME_NTF: {
