@@ -334,6 +334,19 @@ public class NfcEmulatorDeviceSnippet extends NfcSnippet {
         return false;
     }
 
+    /** Open polling and off host emulator activity */
+    @Rpc(description = "Open polling and off host emulator activity")
+    public void startPollingAndOffHostEmulatorActivity() {
+        Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.setClassName(
+                instrumentation.getTargetContext(),
+                PollingAndOffHostEmulatorActivity.class.getName());
+        intent.putExtra(PollingLoopEmulatorActivity.NFC_TECH_KEY, NfcAdapter.FLAG_READER_NFC_A);
+        mActivity = (PollingAndOffHostEmulatorActivity) instrumentation.startActivitySync(intent);
+    }
+
     /** Open polling loop emulator activity for Type A */
     @Rpc(description = "Open polling loop emulator activity for polling loop A test")
     public void startPollingLoopAEmulatorActivity() {

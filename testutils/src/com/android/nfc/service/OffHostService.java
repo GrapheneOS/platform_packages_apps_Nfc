@@ -15,21 +15,18 @@
  */
 package com.android.nfc.service;
 
-import com.android.nfc.utils.HceUtils;
 import android.content.ComponentName;
+import android.content.Intent;
+import android.nfc.cardemulation.OffHostApduService;
+import android.os.IBinder;
 
-public class OffHostService extends HceService {
+public class OffHostService extends OffHostApduService {
     public static final ComponentName COMPONENT = new ComponentName(
             "com.android.nfc.emulator", OffHostService.class.getName()
     );
 
-    public OffHostService() {
-        super(
-                HceUtils.COMMAND_APDUS_BY_SERVICE.get(OffHostService.class.getName()),
-                HceUtils.RESPONSE_APDUS_BY_SERVICE.get(OffHostService.class.getName()));
-    }
     @Override
-    public ComponentName getComponent() {
-        return OffHostService.COMPONENT;
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 }

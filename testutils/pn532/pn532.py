@@ -63,7 +63,7 @@ class PN532:
             },
         )
         self.log.debug("Serial port: %s", path)
-        self.device = serial.Serial(path, 115200, timeout=0.1)
+        self.device = serial.Serial(path, 115200, timeout=0.5)
 
         self.device.flush()
         self.device.write(LONG_PREAMBLE + bytearray.fromhex("0000ff00ff00"))
@@ -242,7 +242,7 @@ class PN532:
 
         return bytearray(frame)
 
-    def send_frame(self, frame, timeout=0.1):
+    def send_frame(self, frame, timeout=0.5):
         """
         Writes a frame to the device and returns the response.
         """
@@ -300,7 +300,7 @@ class PN532:
                     "Unexpected postamble byte when performing read, got %02x", frame[4]
                 )
 
-        self.device.timeout = 0.1
+        self.device.timeout = 0.5
         self.device.write(
             bytearray.fromhex("0000ff00ff00")
         )  # send ACK frame, there is no response.

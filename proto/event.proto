@@ -44,6 +44,10 @@ message EventType {
     NfcHostCardEmulationData host_card_emulation_data = 8;
     NfcRemoteFieldStateChange remote_field_state_change = 9;
     NfcDiscoveryTechnologyUpdate discovery_technology_update = 10;
+    NfcSecureChange secure_change = 11;
+    NfcWlcStateChange wlc_state_change = 12;
+    NfcReaderOptionChange reader_option_change = 13;
+    NfcClearPreference clear_preference = 14;
   }
 }
 
@@ -100,3 +104,17 @@ message NfcDiscoveryTechnologyUpdate {
   required int32 poll_tech = 2;
   required int32 listen_tech = 3;
 }
+
+message NfcSecureChange {
+  required bool enable = 1;
+}
+
+message NfcWlcStateChange {
+  required bool enable = 1;
+}
+
+message NfcReaderOptionChange {
+  required bool enable = 1;
+}
+
+message NfcClearPreference {}

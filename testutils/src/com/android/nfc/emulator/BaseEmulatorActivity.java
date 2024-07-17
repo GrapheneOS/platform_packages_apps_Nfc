@@ -184,6 +184,8 @@ public abstract class BaseEmulatorActivity extends Activity {
             }
         } catch (NameNotFoundException e) {
             Log.w(TAG, "NameNotFoundException. Test will probably fail.");
+        } catch (Exception e) {
+            Log.w(TAG, "Exception while parsing service description.", e);
         }
         return "";
     }

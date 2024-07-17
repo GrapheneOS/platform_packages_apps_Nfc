@@ -15,11 +15,19 @@
  */
 package com.android.nfc.service;
 import android.content.ComponentName;
+import android.content.Intent;
+import android.nfc.cardemulation.OffHostApduService;
+import android.os.IBinder;
 
-public class ScreenOnOnlyOffHostService {
+public class ScreenOnOnlyOffHostService extends OffHostApduService {
     public static final ComponentName COMPONENT =
             new ComponentName(
                     "com.android.nfc.emulator",
                     ScreenOnOnlyOffHostService.class.getName()
             );
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
+    }
 }

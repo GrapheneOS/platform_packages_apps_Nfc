@@ -35,6 +35,10 @@
         <meta-data
             android:name="mobly-snippets"
             android:value="com.android.nfc.emulator.NfcEmulatorDeviceSnippet"/>
+        <activity android:name=".PollingAndOffHostEmulatorActivity"
+            android:label="Polling And Off Host Emulator"
+            android:exported="true">
+        </activity>
         <activity
             android:name=".PollingLoopEmulatorActivity"
             android:label="Polling Loop Emulator"
