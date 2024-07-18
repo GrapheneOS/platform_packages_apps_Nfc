@@ -146,6 +146,11 @@
             android:label="Screen-On Off Host Emulator"
             android:exported="true">
         </activity>
+        <activity
+            android:name=".PN532Activity"
+            android:label="PN532 Activity"
+            android:exported="true">
+        </activity>
         <service android:name="com.android.nfc.service.PollingLoopService" android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE"
             android:enabled="true">
