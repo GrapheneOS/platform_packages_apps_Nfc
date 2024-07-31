@@ -31,6 +31,7 @@ import com.android.nfc.service.OffHostService;
 import com.android.nfc.service.PaymentService1;
 import com.android.nfc.service.PaymentService2;
 import com.android.nfc.service.PaymentServiceDynamicAids;
+import com.android.nfc.service.PollingLoopService;
 import com.android.nfc.service.PrefixAccessService;
 import com.android.nfc.service.PrefixPaymentService1;
 import com.android.nfc.service.PrefixPaymentService2;
@@ -39,7 +40,6 @@ import com.android.nfc.service.PrefixTransportService2;
 import com.android.nfc.service.ScreenOffPaymentService;
 import com.android.nfc.service.ScreenOnOnlyOffHostService;
 import com.android.nfc.service.ThroughputService;
-import com.android.nfc.service.PollingLoopService;
 import com.android.nfc.service.TransportService1;
 import com.android.nfc.service.TransportService2;
 
@@ -69,6 +69,8 @@ public final class HceUtils {
 
     public static final String LARGE_NUM_AIDS_PREFIX = "F00102030414";
     public static final String LARGE_NUM_AIDS_POSTFIX = "81";
+
+    public static final String EMULATOR_PACKAGE_NAME = "com.android.nfc.emulator";
 
     /** Service-specific APDU Command/Response sequences */
     public static final HashMap<String, CommandApdu[]> COMMAND_APDUS_BY_SERVICE = new HashMap<>();

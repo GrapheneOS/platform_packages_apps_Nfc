@@ -65,7 +65,7 @@ public class TwoPollingFrameEmulatorActivity extends BaseEmulatorActivity {
         mCardEmulation.setShouldDefaultToObserveModeForService(serviceName2, true);
 
         mCardEmulation.setPreferredService(this, serviceName1);
-        waitForService();
+        waitForPreferredService();
         waitForObserveModeEnabled(true);
     }
 

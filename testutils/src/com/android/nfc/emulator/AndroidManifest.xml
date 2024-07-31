@@ -50,13 +50,8 @@
             android:exported="true">
         </activity>
         <activity
-            android:name=".SingleNonPaymentEmulatorActivity"
-            android:label="Single Non Payment Emulator"
-            android:exported="true">
-        </activity>
-        <activity
-            android:name=".SinglePaymentEmulatorActivity"
-            android:label="Single Payment Emulator"
+            android:name=".SimpleEmulatorActivity"
+            android:label="Simple Emulator"
             android:exported="true">
         </activity>
         <activity
@@ -67,16 +62,6 @@
         <activity
             android:name=".OnAndOffHostEmulatorActivity"
             android:label="On and Off Host Emulator"
-            android:exported="true">
-        </activity>
-        <activity
-            android:name=".DualPaymentEmulatorActivity"
-            android:label="Dual Payment Emulator"
-            android:exported="true">
-        </activity>
-        <activity
-            android:name=".ForegroundPaymentEmulatorActivity"
-            android:label="Foreground Payment Emulator"
             android:exported="true">
         </activity>
         <activity
@@ -95,28 +80,13 @@
             android:exported="true">
         </activity>
         <activity
-            android:name=".DualNonPaymentEmulatorActivity"
-            android:label="Dual Non Payment emulator"
-            android:exported="true">
-        </activity>
-        <activity
             android:name=".DualNonPaymentPrefixEmulatorActivity"
             android:label="Dual Non-Payment Prefix emulator"
             android:exported="true">
         </activity>
         <activity
-            android:name=".ForegroundNonPaymentEmulatorActivity"
-            android:label="Foreground Non Payment emulator"
-            android:exported="true">
-        </activity>
-        <activity
             android:name=".ThroughputEmulatorActivity"
             android:label="Throughput emulator"
-            android:exported="true">
-        </activity>
-        <activity
-            android:name=".TapTestEmulatorActivity"
-            android:label="Tap Test emulator"
             android:exported="true">
         </activity>
         <activity
@@ -127,15 +97,6 @@
         <activity
             android:name=".ScreenOffPaymentEmulatorActivity"
             android:label="Screen Off Payment emulator"
-            android:exported="true">
-        </activity>
-        <activity
-            android:name=".ProtocolParamsEmulatorActivity"
-            android:label="Protocol Params emulator"
-            android:exported="true">
-        </activity>
-        <activity android:name=".ConflictingNonPaymentEmulatorActivity"
-            android:label="Conflicting Non-Payment Emulator"
             android:exported="true">
         </activity>
         <activity android:name=".ConflictingNonPaymentPrefixEmulatorActivity"
