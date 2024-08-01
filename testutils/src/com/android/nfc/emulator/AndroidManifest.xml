@@ -35,6 +35,11 @@
         <meta-data
             android:name="mobly-snippets"
             android:value="com.android.nfc.emulator.NfcEmulatorDeviceSnippet"/>
+        <activity
+            android:name=".AccessServiceTurnObserveModeOnProcessApduEmulatorActivity"
+            android:label="Access Service Observe Mode Emulator"
+            android:exported="true">
+        </activity>
         <activity android:name=".PollingAndOffHostEmulatorActivity"
             android:label="Polling And Off Host Emulator"
             android:exported="true">
@@ -129,6 +134,15 @@
                 <category android:name="android.intent.category.DEFAULT"/>
             </intent-filter>
             <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/access_aid_list_2"/>
+        </service>
+        <service android:name="com.android.nfc.service.AccessServiceTurnObserveModeOnProcessApdu" android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/access_aid_list"/>
         </service>
         <service android:name="com.android.nfc.service.TransportService1" android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE"

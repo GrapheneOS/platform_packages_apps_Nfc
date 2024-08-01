@@ -52,7 +52,10 @@ android_test {
 
 python_library {
     name: "pn532-python",
-    srcs: ["pn532/**/*.py"],
+    srcs: [
+        "pn532/**/*.py",
+        "pn532/nfcutils/**/*.py",
+    ],
     host_supported: true,
     device_supported: true,
 }
