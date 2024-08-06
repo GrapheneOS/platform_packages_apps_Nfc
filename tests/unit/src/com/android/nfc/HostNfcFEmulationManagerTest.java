@@ -72,7 +72,6 @@ import com.android.nfc.flags.Flags;
 public class HostNfcFEmulationManagerTest {
 
     private static final String TAG = HostNfcFEmulationManagerTest.class.getSimpleName();
-    private boolean mNfcSupported;
     private MockitoSession mStaticMockSession;
     private HostNfcFEmulationManager mHostNfcFEmulationManager;
     private ComponentName componentName;
@@ -85,15 +84,7 @@ public class HostNfcFEmulationManagerTest {
                 .mockStatic(Message.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
-
-        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-        PackageManager pm = context.getPackageManager();
-        if (!pm.hasSystemFeature(PackageManager.FEATURE_NFC_ANY)) {
-            mNfcSupported = false;
-            return;
-        }
-        mNfcSupported = true;
-
+	Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         Context mockContext = new ContextWrapper(context) {
 
             public Context createContextAsUser(@NonNull UserHandle user,
@@ -153,8 +144,6 @@ public class HostNfcFEmulationManagerTest {
 
     @Test
     public void testOnEnabledForegroundNfcFServiceChanged() {
-        if (!mNfcSupported) return;
-
         String packageName = mHostNfcFEmulationManager.getEnabledFgServiceName();
         Assert.assertNull(packageName);
         when(componentName.getPackageName()).thenReturn("com.android.nfc");
@@ -167,8 +156,6 @@ public class HostNfcFEmulationManagerTest {
 
     @Test
     public void testOnHostEmulationData() {
-        if (!mNfcSupported) return;
-
         testOnEnabledForegroundNfcFServiceChanged();
         mHostNfcFEmulationManager.onHostEmulationData("com.android.nfc".getBytes());
         ExtendedMockito.verify(() -> NfcStatsLog.write(NfcStatsLog.NFC_CARDEMULATION_OCCURRED,
@@ -179,8 +166,6 @@ public class HostNfcFEmulationManagerTest {
 
     @Test
     public void testOnNfcDisabled() {
-        if (!mNfcSupported) return;
-
         testOnHostEmulationData();
         ServiceConnection serviceConnection = mHostNfcFEmulationManager.getServiceConnection();
         Message message = mock(Message.class);
@@ -197,8 +182,6 @@ public class HostNfcFEmulationManagerTest {
 
     @Test
     public void testOnUserSwitched() {
-        if (!mNfcSupported) return;
-
         testOnHostEmulationData();
         ServiceConnection serviceConnection = mHostNfcFEmulationManager.getServiceConnection();
         Message message = mock(Message.class);
@@ -216,8 +199,6 @@ public class HostNfcFEmulationManagerTest {
 
     @Test
     public void testOnHostEmulationDeactivated() {
-        if (!mNfcSupported) return;
-
         testOnHostEmulationData();
         ServiceConnection serviceConnection = mHostNfcFEmulationManager.getServiceConnection();
         Message message = mock(Message.class);

@@ -29,6 +29,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -88,6 +90,7 @@ public class AidRoutingManager {
         int route;
         int aidInfo;
         int power;
+        List<String> unCheckedOffHostSE = new ArrayList<>();
     }
 
     public AidRoutingManager() {
@@ -244,6 +247,29 @@ public class AidRoutingManager {
             }
         }
         return false;
+    }
+
+    private void checkOffHostRouteToHost(HashMap<String, AidEntry> routeCache) {
+        Iterator<Map.Entry<String, AidEntry> > it = routeCache.entrySet().iterator();
+        while (it.hasNext()) {
+            Map.Entry<String, AidEntry> entry = it.next();
+            String aid = entry.getKey();
+            AidEntry aidEntry = entry.getValue();
+
+            if (!aidEntry.isOnHost || aidEntry.unCheckedOffHostSE.size() == 0) {
+                continue;
+            }
+            boolean mustHostRoute = aidEntry.unCheckedOffHostSE.stream()
+                    .anyMatch(offHost -> getRouteForSecureElement(offHost) == mDefaultRoute);
+            if (mustHostRoute) {
+                if (DBG) Log.d(TAG, aid + " is route to host due to unchecked off host and " +
+                        "default route(0x" + Integer.toHexString(mDefaultRoute) + ") is same");
+            }
+            else {
+                if (DBG) Log.d(TAG, aid + " remove in host route list");
+                it.remove();
+            }
+        }
     }
 
     public boolean configureRouting(HashMap<String, AidEntry> aidMap, boolean force) {
@@ -456,6 +482,12 @@ public class AidRoutingManager {
                             }
                         }
                     }
+                }
+
+                // Unchecked Offhosts rout to host
+                if (mDefaultRoute != ROUTE_HOST) {
+                    Log.d(TAG, "check offHost route to host");
+                    checkOffHostRouteToHost(aidRoutingTableCache);
                 }
 
               if (calculateAidRouteSize(aidRoutingTableCache) <= mMaxAidRoutingTableSize ||
