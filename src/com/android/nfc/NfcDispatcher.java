@@ -55,6 +55,7 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.sysprop.NfcProperties;
+import android.text.TextUtils;
 import android.util.Log;
 import android.util.proto.ProtoOutputStream;
 import android.view.LayoutInflater;
@@ -989,6 +990,14 @@ class NfcDispatcher {
         return false;
     }
 
+    private String getPeripheralName(HandoverDataParser.BluetoothHandoverData handover) {
+        if (!TextUtils.isEmpty(handover.name)) {
+            return handover.name;
+        }
+        // If name is empty in the handover data, use a generic name.
+        return mContext.getResources().getString(R.string.device);
+    }
+
     public boolean tryPeripheralHandover(NdefMessage m, Tag tag) {
         if (m == null || !mDeviceSupportsBluetooth) return false;
         if (DBG) Log.d(TAG, "tryHandover(): " + m.toString());
@@ -1004,7 +1013,8 @@ class NfcDispatcher {
 
         Intent intent = new Intent(mContext, PeripheralHandoverService.class);
         intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_DEVICE, handover.device);
-        intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_NAME, handover.name);
+        intent.putExtra(
+            PeripheralHandoverService.EXTRA_PERIPHERAL_NAME, getPeripheralName(handover));
         intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_TRANSPORT, handover.transport);
         if (handover.oobData != null) {
             intent.putExtra(PeripheralHandoverService.EXTRA_PERIPHERAL_OOB_DATA, handover.oobData);
