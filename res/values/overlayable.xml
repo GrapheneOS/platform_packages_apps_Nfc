@@ -46,6 +46,7 @@
             <item name="nfc_proprietary_getcaps_supported" type="bool" />
             <item name="max_event_log_num" type="integer" />
             <item name="enable_oem_extension" type="bool" />
+            <item name="enable_developer_option_notification" type="bool" />
           <!-- Params from config.xml that can be overlaid -->
 
           <!-- Params from strings.xml that can be overlaid -->

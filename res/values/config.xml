@@ -38,4 +38,6 @@
     <integer name="max_event_log_num">50</integer>
     <!-- Overlay to indicate that the OEM plans to use OEM extension -->
     <bool name="enable_oem_extension">false</bool>
+    <!-- Overlay to enable NFC developer option notification-->
+    <bool name="enable_developer_option_notification">true</bool>
 </resources>
