@@ -607,6 +607,13 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         mHandler.post(() -> mNfcAdapter.sendVendorNciNotification(gid, oid, payload));
     }
 
+    @Override
+    public void onObserveModeStateChanged(boolean enable) {
+        if (mCardEmulationManager != null) {
+            mCardEmulationManager.onObserveModeStateChange(enable);
+        }
+    }
+
     /**
      * Enable or Disable PowerSaving Mode based on flag
      */
@@ -1847,9 +1854,6 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
 
             long start = SystemClock.elapsedRealtime();
             boolean result = mDeviceHost.setObserveMode(enable);
-            if (result && mCardEmulationManager != null) {
-                mCardEmulationManager.onObserveModeStateChange(enable);
-            }
             int latency = Math.toIntExact(SystemClock.elapsedRealtime() - start);
             if (mStatsdUtils != null) {
                 mStatsdUtils.logObserveModeStateChanged(enable, triggerSource, latency);
@@ -4370,7 +4374,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     }
                 }
                 int dispatchResult = mNfcDispatcher.dispatchTag(tag);
-                if (dispatchResult == NfcDispatcher.DISPATCH_FAIL && !mInProvisionMode) {
+                if (dispatchResult == NfcDispatcher.DISPATCH_FAIL) {
                     if (DBG) Log.d(TAG, "Tag dispatch failed");
                     unregisterObject(tagEndpoint.getHandle());
                     if (mPollDelayTime > NO_POLL_DELAY) {
@@ -4379,7 +4383,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     } else {
                         Log.d(TAG, "Keep presence checking.");
                     }
-                    if (mScreenState == ScreenStateHelper.SCREEN_STATE_ON_UNLOCKED && mNotifyDispatchFailed) {
+                    if (mScreenState == ScreenStateHelper.SCREEN_STATE_ON_UNLOCKED
+                            && mNotifyDispatchFailed && !mInProvisionMode) {
                         if (!sToast_debounce) {
                             Toast.makeText(mContext, R.string.tag_dispatch_failed,
                                            Toast.LENGTH_SHORT).show();

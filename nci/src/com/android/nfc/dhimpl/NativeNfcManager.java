@@ -560,4 +560,8 @@ public class NativeNfcManager implements DeviceHost {
                 proprietaryCaps.isPowerSavingModeSupported(),
                 proprietaryCaps.isAutotransactPollingLoopFilterSupported());
     }
+
+    public void notifyObserveModeChanged(boolean enabled) {
+        mListener.onObserveModeStateChanged(enabled);
+    }
 }

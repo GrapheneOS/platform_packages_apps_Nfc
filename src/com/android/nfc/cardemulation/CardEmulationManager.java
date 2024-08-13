@@ -208,6 +208,10 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         mHostEmulationManager.onPollingLoopDetected(pollingFrames);
     }
 
+    public void onObserveModeStateChanged(boolean enable) {
+        mHostEmulationManager.onObserveModeStateChange(enable);
+    }
+
     public void onFieldChangeDetected(boolean fieldOn) {
         mHostEmulationManager.onFieldChangeDetected(fieldOn);
     }
@@ -1065,7 +1069,6 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     public void onPreferredForegroundServiceChanged(int userId, ComponentName service) {
         Log.i(TAG, "onPreferredForegroundServiceChanged");
         ComponentName oldPreferredService = mAidCache.getPreferredService().second;
-        mAidCache.onPreferredForegroundServiceChanged(userId, service);
         mHostEmulationManager.onPreferredForegroundServiceChanged(userId, service);
         ComponentName newPreferredService = mAidCache.getPreferredService().second;
 

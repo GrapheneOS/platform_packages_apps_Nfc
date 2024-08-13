@@ -101,6 +101,7 @@ jmethodID gCachedNfcManagerNotifyPollingLoopFrame;
 jmethodID gCachedNfcManagerNotifyWlcStopped;
 jmethodID gCachedNfcManagerNotifyVendorSpecificEvent;
 jmethodID gCachedNfcManagerNotifyCommandTimeout;
+jmethodID gCachedNfcManagerNotifyObserveModeChanged;
 const char* gNativeNfcTagClassName = "com/android/nfc/dhimpl/NativeNfcTag";
 const char* gNativeNfcManagerClassName =
     "com/android/nfc/dhimpl/NativeNfcManager";
@@ -640,6 +641,9 @@ static jboolean nfcManager_initNativeStruc(JNIEnv* e, jobject o) {
   gCachedNfcManagerNotifyCommandTimeout =
       e->GetMethodID(cls.get(), "notifyCommandTimeout", "()V");
 
+  gCachedNfcManagerNotifyObserveModeChanged =
+      e->GetMethodID(cls.get(), "notifyObserveModeChanged", "(Z)V");
+
   if (nfc_jni_cache_object(e, gNativeNfcTagClassName, &(nat->cached_NfcTag)) ==
       -1) {
     LOG(ERROR) << StringPrintf("%s: fail cache NativeNfcTag", __func__);
@@ -1171,7 +1175,13 @@ static jboolean nfcManager_setObserveMode(JNIEnv* e, jobject o,
       "%s: Set observe mode to %s with result %x, observe mode is now %s.",
       __FUNCTION__, (enable != JNI_FALSE ? "TRUE" : "FALSE"), gVSCmdStatus,
       (gObserveModeEnabled ? "enabled" : "disabled"));
-  return gObserveModeEnabled == enable;
+  if (gObserveModeEnabled == enable) {
+    e->CallVoidMethod(o, android::gCachedNfcManagerNotifyObserveModeChanged,
+                      enable);
+    return true;
+  } else {
+    return false;
+  }
 }
 
 /*******************************************************************************
