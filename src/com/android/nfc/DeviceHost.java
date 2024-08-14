@@ -23,6 +23,7 @@ import android.os.Bundle;
 
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.List;
 
 public interface DeviceHost {
@@ -178,7 +179,7 @@ public interface DeviceHost {
 
     boolean getExtendedLengthApdusSupported();
 
-    void dump(FileDescriptor fd);
+    void dump(PrintWriter pw, FileDescriptor fd);
 
     public void doSetScreenState(int screen_state_mask, boolean alwaysPoll);
 
