@@ -2773,6 +2773,14 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcOemExtensionCallback = null;
         }
+        @Override
+        public List<String> fetchActiveNfceeList() throws RemoteException {
+            List<String> list = new ArrayList<String>();
+            if (isNfcEnabled()) {
+                list = mDeviceHost.dofetchActiveNfceeList();
+            }
+            return list;
+        }
 
         @Override
         public void clearPreference() throws RemoteException {
@@ -2792,7 +2800,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
         public void setScreenState() throws RemoteException {
             if (DBG) Log.i(TAG, "setScreenState");
             NfcPermissions.enforceAdminPermissions(mContext);
-            applyScreenState(mScreenStateHelper.checkScreenState());
+            applyScreenState(mScreenStateHelper.checkScreenState(true /* checkDisplayState */));
         }
 
         @Override
@@ -4829,5 +4837,10 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             executor.shutdownNow();
             throw e;
         }
+    }
+
+    @VisibleForTesting
+    public Handler getHandler() {
+        return mHandler;
     }
 }
