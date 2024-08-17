@@ -180,6 +180,15 @@
             </intent-filter>
             <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/payment_aid_list_1"/>
         </service>
+        <service android:name="com.android.nfc.service.PaymentServiceNoIndexReset" android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE"
+            android:enabled="false">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <meta-data android:name="android.nfc.cardemulation.host_apdu_service" android:resource="@xml/payment_aid_list_1"/>
+        </service>
         <service android:name="com.android.nfc.service.OffHostService" android:exported="true"
             android:permission="android.permission.BIND_NFC_SERVICE"
             android:enabled="false">

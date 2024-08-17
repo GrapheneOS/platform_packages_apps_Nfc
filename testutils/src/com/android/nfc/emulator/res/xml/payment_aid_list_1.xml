@@ -7,4 +7,5 @@
         <aid-filter android:name="A0000000041010"
             android:description="@string/mastercard"/>
     </aid-group>
+    <polling-loop-filter android:name="41fbc7b9" android:autoTransact="true"/>
 </host-apdu-service>

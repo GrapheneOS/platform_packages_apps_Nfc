@@ -21,8 +21,8 @@ import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
 import android.util.Log;
 
-import com.android.nfc.utils.HceUtils;
 import com.android.nfc.utils.CommandApdu;
+import com.android.nfc.utils.HceUtils;
 
 import java.util.Arrays;
 
@@ -35,9 +35,9 @@ public abstract class HceService extends HostApduService {
     public static final String EXTRA_COMPONENT = "component";
     public static final String EXTRA_DURATION = "duration";
 
-    private static final int STATE_IDLE = 0;
-    private static final int STATE_IN_PROGRESS = 1;
-    private static final int STATE_FAILED = 2;
+    protected static final int STATE_IDLE = 0;
+    protected static final int STATE_IN_PROGRESS = 1;
+    protected static final int STATE_FAILED = 2;
 
     // Variables below only used on main thread
     CommandApdu[] mCommandApdus = null;
@@ -82,7 +82,7 @@ public abstract class HceService extends HostApduService {
      */
     @Override
     public byte[] processCommandApdu(byte[] arg0, Bundle arg1) {
-        Log.d(TAG, "processCommandApdu called");
+        Log.d(TAG, "processCommandApdu called: " + HceUtils.getHexBytes("", arg0));
         if (mState == STATE_FAILED) {
             // Don't accept any more APDUs until deactivated
             return null;
@@ -114,7 +114,13 @@ public abstract class HceService extends HostApduService {
 
             if (!Arrays.equals(
                     HceUtils.hexStringToBytes(mCommandApdus[mApduIndex].getApdu()), arg0)) {
-                Log.d(TAG, "Unexpected command APDU: " + HceUtils.getHexBytes("", arg0));
+                Log.d(
+                        TAG,
+                        "Unexpected command APDU. Got: "
+                                + HceUtils.getHexBytes("", arg0)
+                                + ", "
+                                + "expected: "
+                                + mCommandApdus[mApduIndex].getApdu());
                 return null;
             } else {
                 // Send corresponding response APDU
