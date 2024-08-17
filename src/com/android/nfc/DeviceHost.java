@@ -229,7 +229,7 @@ public interface DeviceHost {
     boolean isMultiTag();
 
     void setIsoDepProtocolRoute(int route);
-    void setTechnologyABRoute(int route);
+    void setTechnologyABFRoute(int route);
     void clearRoutingEntry(int clearFlags);
 
     /**
