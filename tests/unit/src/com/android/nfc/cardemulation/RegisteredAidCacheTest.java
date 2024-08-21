@@ -42,6 +42,7 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.NfcService;
 
 import org.junit.After;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -685,6 +686,19 @@ public class RegisteredAidCacheTest {
             when(apduServiceInfo.getCategoryForAid(eq(aid))).thenReturn(category);
         }
         return apduServiceInfo;
+    }
+
+    @Test
+    public void testGetPreferredService() {
+
+        mRegisteredAidCache = new RegisteredAidCache(mContext, mWalletRoleObserver,
+                mAidRoutingManager);
+        Pair<Integer, ComponentName> servicePair = mRegisteredAidCache.getPreferredService();
+        Assert.assertNull(servicePair.second);
+        mRegisteredAidCache.onPreferredForegroundServiceChanged(USER_ID, FOREGROUND_SERVICE);
+        servicePair = mRegisteredAidCache.getPreferredService();
+        Assert.assertNotNull(servicePair.second);
+        assertEquals(new Pair<>(USER_ID, FOREGROUND_SERVICE), servicePair);
     }
 
 }
