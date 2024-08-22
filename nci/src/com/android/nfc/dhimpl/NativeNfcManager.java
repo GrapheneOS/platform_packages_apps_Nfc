@@ -26,6 +26,7 @@ import android.nfc.tech.Ndef;
 import android.nfc.tech.TagTechnology;
 import android.os.Bundle;
 import android.os.Trace;
+import android.sysprop.NfcProperties;
 import android.util.Log;
 
 import com.android.nfc.DeviceHost;
@@ -187,6 +188,9 @@ public class NativeNfcManager implements DeviceHost {
         // mode is supported.
         if (!mContext.getResources().getBoolean(
                 com.android.nfc.R.bool.nfc_observe_mode_supported)) {
+            return false;
+        }
+        if (!NfcProperties.info_observe_mode_supported().orElse(true)) {
             return false;
         }
         if (mContext.getResources().getBoolean(
