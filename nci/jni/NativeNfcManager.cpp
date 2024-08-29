@@ -176,7 +176,7 @@ uint8_t gConfig[256];
 std::vector<uint8_t> gCaps(0);
 static int prevScreenState = NFA_SCREEN_STATE_OFF_LOCKED;
 static int NFA_SCREEN_POLLING_TAG_MASK = 0x10;
-static bool gIsDtaEnabled = false;
+bool gIsDtaEnabled = false;
 static bool gObserveModeEnabled = false;
 /////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////
@@ -823,6 +823,12 @@ void nfaDeviceManagementCallback(uint8_t dmEvent,
         PowerSwitch::getInstance().abort();
 
         if (!sIsDisabling && sIsNfaEnabled) {
+          if (gIsDtaEnabled == true) {
+            LOG(DEBUG) << StringPrintf("%s: DTA; unset dta flag in core stack",
+                                       __func__);
+            NFA_DisableDtamode();
+          }
+
           NFA_Disable(FALSE);
           sIsDisabling = true;
         } else {
@@ -1292,6 +1298,13 @@ static jboolean nfcManager_doInitialize(JNIEnv* e, jobject o) {
 
       NFA_Init(halFuncEntries);
 
+      if (gIsDtaEnabled == true) {
+        // Allows to set appl_dta_mode_flag
+        LOG(DEBUG) << StringPrintf("%s: DTA; set dta flag in core stack",
+                                   __func__);
+        NFA_EnableDtamode((tNFA_eDtaModes)NFA_DTA_APPL_MODE);
+      }
+
       stat = NFA_Enable(nfaDeviceManagementCallback, nfaConnectionCallback);
       if (stat == NFA_STATUS_OK) {
         sNfaEnableEvent.wait();  // wait for NFA command to finish
@@ -1310,17 +1323,6 @@ static jboolean nfcManager_doInitialize(JNIEnv* e, jobject o) {
 
         /////////////////////////////////////////////////////////////////////////////////
         // Add extra configuration here (work-arounds, etc.)
-
-        if (gIsDtaEnabled == true) {
-          uint8_t configData = 0;
-          configData = 0x01; /* Poll NFC-DEP : Highest Available Bit Rates */
-          NFA_SetConfig(NCI_PARAM_ID_BITR_NFC_DEP, sizeof(uint8_t),
-                        &configData);
-          configData = 0x0B; /* Listen NFC-DEP : Waiting Time */
-          NFA_SetConfig(NFC_PMID_WT, sizeof(uint8_t), &configData);
-          configData = 0x0F; /* Specific Parameters for NFC-DEP RF Interface */
-          NFA_SetConfig(NCI_PARAM_ID_NFC_DEP_OP, sizeof(uint8_t), &configData);
-        }
 
         struct nfc_jni_native_data* nat = getNative(e, o);
         if (nat) {
@@ -1364,6 +1366,12 @@ static jboolean nfcManager_doInitialize(JNIEnv* e, jobject o) {
       }
     }
 
+    if (gIsDtaEnabled == true) {
+      LOG(DEBUG) << StringPrintf("%s: DTA; unset dta flag in core stack",
+                                 __func__);
+      NFA_DisableDtamode();
+    }
+
     LOG(ERROR) << StringPrintf("%s: fail nfa enable; error=0x%X", __func__,
                                stat);
 
@@ -1386,10 +1394,12 @@ TheEnd:
 }
 
 static void nfcManager_doEnableDtaMode(JNIEnv*, jobject) {
+  LOG(DEBUG) << StringPrintf("%s: enter", __func__);
   gIsDtaEnabled = true;
 }
 
 static void nfcManager_doDisableDtaMode(JNIEnv*, jobject) {
+  LOG(DEBUG) << StringPrintf("%s: enter", __func__);
   gIsDtaEnabled = false;
 }
 
@@ -1586,6 +1596,13 @@ static jboolean nfcManager_doDeinitialize(JNIEnv*, jobject) {
 
   if (sIsNfaEnabled) {
     SyncEventGuard guard(sNfaDisableEvent);
+
+    if (gIsDtaEnabled == true) {
+      LOG(DEBUG) << StringPrintf("%s: DTA; unset dta flag in core stack",
+                                 __func__);
+      NFA_DisableDtamode();
+    }
+
     tNFA_STATUS stat = NFA_Disable(TRUE /* graceful */);
     if (stat == NFA_STATUS_OK) {
       LOG(DEBUG) << StringPrintf("%s: wait for completion", __func__);
