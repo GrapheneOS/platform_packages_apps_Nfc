@@ -1240,6 +1240,9 @@ public class RegisteredServicesCache {
             }
         }
         if (success) {
+            List<ApduServiceInfo> otherServices = getServicesForCategory(userId,
+                    CardEmulation.CATEGORY_OTHER);
+            invalidateOther(userId, otherServices);
             // Make callback without the lock held
             mCallback.onServicesUpdated(userId, newServices, true);
         }
@@ -1333,6 +1336,9 @@ public class RegisteredServicesCache {
             }
         }
         if (success) {
+            List<ApduServiceInfo> otherServices = getServicesForCategory(userId,
+                    CardEmulation.CATEGORY_OTHER);
+            invalidateOther(userId, otherServices);
             mCallback.onServicesUpdated(userId, newServices, true);
         }
         return success;

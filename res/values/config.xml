@@ -48,4 +48,6 @@
     <bool name="secure_nfc_default">false</bool>
     <!-- Block list that contains the package names which are not desired to get tag intents -->
     <string-array name="tag_intent_blocked_app_list" translatable="false" />
+    <!-- Use display state callbacks along with screen on/off intent in determining SCREEN_STATE -->
+    <bool name="check_display_state_for_screen_state">false</bool>
 </resources>
