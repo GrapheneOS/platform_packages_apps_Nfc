@@ -53,6 +53,8 @@ public interface DeviceHost {
         public void onVendorSpecificEvent(int gid, int oid, byte[] payload);
 
         public void onObserveModeStateChanged(boolean enable);
+
+        public void onRfDiscoveryEvent(boolean isDiscoveryStarted);
     }
 
     public interface TagEndpoint {
