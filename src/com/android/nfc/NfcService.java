@@ -2463,7 +2463,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             }
             List<AvailableNfcAntenna> availableNfcAntennas = new ArrayList<>();
             for(int i = 0; i < positionX.length; i++){
-                if(positionX[i] >= width | positionY[i] >= height){
+                if(positionX[i] >= width || positionY[i] >= height){
                     return null;
                 }
                 availableNfcAntennas.add(new AvailableNfcAntenna(positionX[i], positionY[i]));
