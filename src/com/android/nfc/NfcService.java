@@ -441,7 +441,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private KeyguardManager mKeyguard;
     private HandoverDataParser mHandoverDataParser;
     private ContentResolver mContentResolver;
-    private CardEmulationManager mCardEmulationManager;
+
+    @VisibleForTesting
+    CardEmulationManager mCardEmulationManager;
     private NfcCharging mNfcCharging;
     private Vibrator mVibrator;
     private VibrationEffect mVibrationEffect;
