@@ -15,6 +15,8 @@
  */
 package com.android.nfc;
 
+import static android.nfc.NfcAdapter.ACTION_PREFERRED_PAYMENT_CHANGED;
+
 import static com.android.nfc.NfcService.INVALID_NATIVE_HANDLE;
 import static com.android.nfc.NfcService.PREF_NFC_ON;
 import static com.android.nfc.NfcService.SOUND_END;
@@ -31,6 +33,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
@@ -49,6 +52,8 @@ import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.media.SoundPool;
@@ -56,7 +61,10 @@ import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAntennaInfo;
 import android.nfc.NfcServiceManager;
+import android.nfc.Tag;
 import android.nfc.cardemulation.CardEmulation;
+import android.nfc.tech.Ndef;
+import android.nfc.tech.TagTechnology;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Handler;
@@ -138,6 +146,7 @@ public final class NfcServiceTest {
         mLooper = new TestLooper();
         mStaticMockSession = ExtendedMockito.mockitoSession()
                 .mockStatic(NfcProperties.class)
+                .mockStatic(android.nfc.Flags.class)
                 .mockStatic(NfcStatsLog.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
@@ -183,6 +192,9 @@ public final class NfcServiceTest {
     }
 
     private void createNfcService() {
+        when(android.nfc.Flags.enableNfcCharging()).thenReturn(true);
+        when(mPackageManager.hasSystemFeature(PackageManager.FEATURE_NFC_CHARGING))
+                .thenReturn(true);
         mNfcService = new NfcService(mApplication, mNfcInjector);
         mLooper.dispatchAll();
         verify(mNfcInjector).makeDeviceHost(mDeviceHostListener.capture());
@@ -586,5 +598,120 @@ public final class NfcServiceTest {
         handler.handleMessage(msg);
         verify(mApplication).sendBroadcastAsUser(mIntentArgumentCaptor.capture(),
                 any(), any(), any());
+    }
+
+    @Test
+    public void testMsg_Preferred_Payment_Changed()
+            throws RemoteException, PackageManager.NameNotFoundException {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_PREFERRED_PAYMENT_CHANGED);
+        msg.obj = 1;
+        List<String> packagesList = new ArrayList<>();
+        packagesList.add("com.android.nfc");
+        packagesList.add("com.sample.nfc");
+        mNfcService.mNfcPreferredPaymentChangedInstalledPackages.put(1, packagesList);
+        ISecureElementService iSecureElementService = mock(ISecureElementService.class);
+        IBinder iBinder = mock(IBinder.class);
+        when(iSecureElementService.asBinder()).thenReturn(iBinder);
+        when(iSecureElementService.getReaders()).thenReturn(new String[]{"com.android.nfc"});
+        when(iSecureElementService.isNfcEventAllowed(anyString(), isNull(), any(), anyInt()))
+                .thenReturn(new boolean[]{true});
+        boolean[] nfcAccess = {true};
+        when(iSecureElementService.isNfcEventAllowed(anyString(), any(), any(), anyInt()))
+                .thenReturn(nfcAccess);
+        when(mNfcInjector.connectToSeService()).thenReturn(iSecureElementService);
+        PackageInfo info = mock(PackageInfo.class);
+        ApplicationInfo applicationInfo = mock(ApplicationInfo.class);
+        applicationInfo.flags = 1;
+        info.applicationInfo = applicationInfo;
+        when(mPackageManager.getPackageInfo(anyString(), anyInt())).thenReturn(info);
+        handler.handleMessage(msg);
+        verify(mApplication, times(2))
+                .sendBroadcastAsUser(mIntentArgumentCaptor.capture(), any());
+        Intent intent = mIntentArgumentCaptor.getValue();
+        Assert.assertEquals(ACTION_PREFERRED_PAYMENT_CHANGED, intent.getAction());
+    }
+
+    @Test
+    public void testMSG_NDEF_TAG() {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_NDEF_TAG);
+        mNfcService.mState = NfcAdapter.STATE_ON;
+        DeviceHost.TagEndpoint tagEndpoint = mock(DeviceHost.TagEndpoint.class);
+        when(tagEndpoint.getConnectedTechnology()).thenReturn(TagTechnology.NDEF);
+        NdefMessage ndefMessage = mock(NdefMessage.class);
+        when(tagEndpoint.findAndReadNdef()).thenReturn(ndefMessage);
+        msg.obj = tagEndpoint;
+        handler.handleMessage(msg);
+        verify(tagEndpoint, atLeastOnce()).startPresenceChecking(anyInt(), any());
+    }
+
+    @Test
+    public void testMsg_Ndef_Tag_Wlc_Enabled() {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_NDEF_TAG);
+        mNfcService.mState = NfcAdapter.STATE_ON;
+        DeviceHost.TagEndpoint tagEndpoint = mock(DeviceHost.TagEndpoint.class);
+        when(tagEndpoint.getConnectedTechnology()).thenReturn(TagTechnology.NDEF);
+        when(tagEndpoint.getUid()).thenReturn(NfcService
+                .hexStringToBytes("0x040000010100000000000000"));
+        when(tagEndpoint.getTechList()).thenReturn(new int[]{Ndef.NDEF});
+        when(tagEndpoint.getTechExtras()).thenReturn(new Bundle[]{});
+        when(tagEndpoint.getHandle()).thenReturn(1);
+        NdefMessage ndefMessage = mock(NdefMessage.class);
+        when(tagEndpoint.findAndReadNdef()).thenReturn(ndefMessage);
+        msg.obj = tagEndpoint;
+        mNfcService.mIsWlcEnabled = true;
+        mNfcService.mIsRWCapable = true;
+        handler.handleMessage(msg);
+        verify(tagEndpoint, atLeastOnce()).startPresenceChecking(anyInt(), any());
+        ArgumentCaptor<Tag> tagCaptor = ArgumentCaptor
+                .forClass(Tag.class);
+        verify(mNfcDispatcher).dispatchTag(tagCaptor.capture());
+        Tag tag = tagCaptor.getValue();
+        Assert.assertNotNull(tag);
+        Assert.assertEquals("android.nfc.tech.Ndef", tag.getTechList()[0]);
+    }
+
+    @Test
+    public void testMsg_Clear_Routing_Table() {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_CLEAR_ROUTING_TABLE);
+        msg.obj = 1;
+        handler.handleMessage(msg);
+        ArgumentCaptor<Integer> flagCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mDeviceHost).clearRoutingEntry(flagCaptor.capture());
+        int flag = flagCaptor.getValue();
+        Assert.assertEquals(1, flag);
+    }
+
+    @Test
+    public void testMsg_Update_Isodep_Protocol_Route() {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_UPDATE_ISODEP_PROTOCOL_ROUTE);
+        msg.obj = 1;
+        handler.handleMessage(msg);
+        ArgumentCaptor<Integer> flagCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mDeviceHost).setIsoDepProtocolRoute(flagCaptor.capture());
+        int flag = flagCaptor.getValue();
+        Assert.assertEquals(1, flag);
+    }
+
+    @Test
+    public void testMsg_Update_Technology_Abf_Route() {
+        Handler handler = mNfcService.getHandler();
+        Assert.assertNotNull(handler);
+        Message msg = handler.obtainMessage(NfcService.MSG_UPDATE_TECHNOLOGY_ABF_ROUTE);
+        msg.obj = 1;
+        handler.handleMessage(msg);
+        ArgumentCaptor<Integer> flagCaptor = ArgumentCaptor.forClass(Integer.class);
+        verify(mDeviceHost).setTechnologyABFRoute(flagCaptor.capture());
+        int flag = flagCaptor.getValue();
+        Assert.assertEquals(1, flag);
     }
 }
