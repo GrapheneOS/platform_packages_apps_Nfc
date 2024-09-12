@@ -4397,6 +4397,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
                     if (DBG) Log.d(TAG, "Polling is started");
                     break;
                 case MSG_CLEAR_ROUTING_TABLE:
+                    if (!isNfcEnabled()) break;
                     if (DBG) Log.d(TAG, "Clear routing table");
                     int clearFlags = (Integer)msg.obj;
                     mDeviceHost.clearRoutingEntry(clearFlags);
@@ -5087,6 +5088,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             pw.println("mIsPowerSavingModeEnabled=" + mIsPowerSavingModeEnabled);
             pw.println("mIsObserveModeSupported=" + mNfcAdapter.isObserveModeSupported());
             pw.println("mIsObserveModeEnabled=" + mNfcAdapter.isObserveModeEnabled());
+            pw.println("listenTech=" + getNfcListenTech());
+            pw.println("pollTech=" + getNfcPollTech());
             pw.println(mCurrentDiscoveryParameters);
             if (mIsHceCapable) {
                 mCardEmulationManager.dump(fd, pw, args);
