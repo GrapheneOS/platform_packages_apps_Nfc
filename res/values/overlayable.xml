@@ -46,6 +46,9 @@
             <item name="nfc_proprietary_getcaps_supported" type="bool" />
             <item name="max_event_log_num" type="integer" />
             <item name="enable_oem_extension" type="bool" />
+            <item name="nfc_default_route" type="string"/>
+            <item name="nfc_default_isodep_route" type="string"/>
+            <item name="nfc_default_offhost_route" type="string"/>
             <item name="enable_developer_option_notification" type="bool" />
             <!-- Allow list that contains the package name which are allowed to use NFC -->
             <item name="nfc_allow_list" type="array" />
