@@ -27,7 +27,9 @@ import android.content.pm.PackageManager.NameNotFoundException;
 import android.nfc.Constants;
 import android.nfc.INfcCardEmulation;
 import android.nfc.INfcFCardEmulation;
+import android.nfc.INfcOemExtensionCallback;
 import android.nfc.NfcAdapter;
+import android.nfc.NfcOemExtension;
 import android.nfc.cardemulation.AidGroup;
 import android.nfc.cardemulation.ApduServiceInfo;
 import android.nfc.cardemulation.CardEmulation;
@@ -126,6 +128,7 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     private final RoutingOptionManager mRoutingOptionManager;
     final byte[] mOffHostRouteUicc;
     final byte[] mOffHostRouteEse;
+    private INfcOemExtensionCallback mNfcOemExtensionCallback;
 
     // TODO: Move this object instantiation and dependencies to NfcInjector.
     public CardEmulationManager(Context context, NfcInjector nfcInjector,
@@ -192,6 +195,10 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
         initialize();
     }
 
+    public void setOemExtension(INfcOemExtensionCallback nfcOemExtensionCallback) {
+        mNfcOemExtensionCallback = nfcOemExtensionCallback;
+    }
+
     private void initialize() {
         mServiceCache.initialize();
         mNfcFServicesCache.initialize();
@@ -225,6 +232,13 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     }
 
     public void onHostCardEmulationActivated(int technology) {
+        if(mNfcOemExtensionCallback!=null) {
+            try {
+                mNfcOemExtensionCallback.onHceEventReceived(NfcOemExtension.HCE_ACTIVATE);
+            } catch (RemoteException e) {
+                Log.e(TAG, "onHceEventReceived failed",e);
+            }
+        }
         if (mPowerManager != null) {
             // Use USER_ACTIVITY_FLAG_INDIRECT to applying power hints without resets
             // the screen timeout
@@ -244,6 +258,14 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
     }
 
     public void onHostCardEmulationData(int technology, byte[] data) {
+        if(mNfcOemExtensionCallback != null) {
+            try {
+                mNfcOemExtensionCallback.onHceEventReceived(NfcOemExtension.HCE_DATA_TRANSFERRED);
+            } catch (RemoteException e) {
+                Log.e(TAG, "onHceEventReceived failed",e);
+            }
+        }
+
         if (technology == NFC_HCE_APDU) {
             mHostEmulationManager.onHostEmulationData(data);
         } else if (technology == NFC_HCE_NFCF) {
@@ -265,6 +287,13 @@ public class CardEmulationManager implements RegisteredServicesCache.Callback,
             mHostNfcFEmulationManager.onHostEmulationDeactivated();
             mNfcFServicesCache.onHostEmulationDeactivated();
             mEnabledNfcFServices.onHostEmulationDeactivated();
+        }
+        if(mNfcOemExtensionCallback != null) {
+            try {
+                mNfcOemExtensionCallback.onHceEventReceived(NfcOemExtension.HCE_DEACTIVATE);
+            } catch (RemoteException e) {
+                Log.e(TAG, "onHceEventReceived failed",e);
+            }
         }
     }
 

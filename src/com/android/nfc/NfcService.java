@@ -69,6 +69,7 @@ import android.nfc.ITagRemovedCallback;
 import android.nfc.NdefMessage;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAntennaInfo;
+import android.nfc.NfcOemExtension;
 import android.nfc.Tag;
 import android.nfc.TechListParcel;
 import android.nfc.TransceiveResult;
@@ -504,8 +505,8 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
     private boolean mRfFieldActivated = false;
     private boolean mRfDiscoveryStarted = false;
 
-    private static final int STATUS_OK = 0;
-    private static final int STATUS_UNKNOWN_ERROR = 1;
+    private static final int STATUS_OK = NfcOemExtension.STATUS_OK;
+    private static final int STATUS_UNKNOWN_ERROR = NfcOemExtension.STATUS_UNKNOWN_ERROR;
 
     private static final int ACTION_ON_ENABLE = 0;
     private static final int ACTION_ON_DISABLE = 1;
@@ -3047,6 +3048,7 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcOemExtensionCallback = callbacks;
             updateNfCState();
+            mCardEmulationManager.setOemExtension(mNfcOemExtensionCallback);
         }
 
         @Override
