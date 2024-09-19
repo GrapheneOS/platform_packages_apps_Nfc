@@ -167,6 +167,10 @@ public class RegisteredAidCacheTest {
         assertFalse(RegisteredAidCache.isSubset(EXACT_AID));
         assertFalse(RegisteredAidCache.isExact(PREFIX_AID));
         assertFalse(RegisteredAidCache.isExact(SUBSET_AID));
+
+        assertFalse(RegisteredAidCache.isPrefix(null));
+        assertFalse(RegisteredAidCache.isSubset(null));
+        assertFalse(RegisteredAidCache.isExact(null));
     }
 
     @Test
