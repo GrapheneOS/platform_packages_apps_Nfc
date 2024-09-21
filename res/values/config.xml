@@ -57,4 +57,6 @@
     <bool name="check_display_state_for_screen_state">false</bool>
     <!-- Enable EUICC support for offhost card emulation -->
     <bool name="enable_euicc_support">false</bool>
+    <!-- Whether to indicate user activity using PowerManager.userActivity for HCE activation -->
+    <bool name="indicate_user_activity_for_hce">true</bool>
 </resources>

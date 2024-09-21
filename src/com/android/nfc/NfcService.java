@@ -3073,7 +3073,9 @@ public class NfcService implements DeviceHostListener, ForegroundUtils.Callback 
             NfcPermissions.enforceAdminPermissions(mContext);
             mNfcOemExtensionCallback = callbacks;
             updateNfCState();
-            mCardEmulationManager.setOemExtension(mNfcOemExtensionCallback);
+            if (mCardEmulationManager != null) {
+                mCardEmulationManager.setOemExtension(mNfcOemExtensionCallback);
+            }
         }
 
         @Override
