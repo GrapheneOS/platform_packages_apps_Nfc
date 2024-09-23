@@ -109,6 +109,15 @@ public class NativeNfcManager implements DeviceHost {
         return ret;
     }
 
+    boolean isObserveModeSupportedWithoutRfDeactivation() {
+        if (!com.android.nfc.flags.Flags.observeModeWithoutRf()) {
+            return false;
+        }
+        return mProprietaryCaps != null &&
+                mProprietaryCaps.getPassiveObserveMode() ==
+                        NfcProprietaryCaps.PassiveObserveMode.SUPPORT_WITHOUT_RF_DEACTIVATION;
+    }
+
     private native void doSetPartialInitMode(int mode);
 
     @Override

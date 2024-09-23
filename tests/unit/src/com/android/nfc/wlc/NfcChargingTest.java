@@ -21,6 +21,8 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.app.ActivityManager;
@@ -37,6 +39,7 @@ import androidx.test.platform.app.InstrumentationRegistry;
 
 import com.android.dx.mockito.inline.extended.ExtendedMockito;
 import com.android.nfc.DeviceHost;
+import com.android.nfc.NfcService;
 
 import com.google.common.truth.Truth;
 
@@ -68,6 +71,7 @@ public class NfcChargingTest {
     @Before
     public void setUp() throws Exception {
         mStaticMockSession = ExtendedMockito.mockitoSession()
+                .mockStatic(NfcService.class)
                 .strictness(Strictness.LENIENT)
                 .startMocking();
         MockitoAnnotations.initMocks(this);
@@ -143,5 +147,35 @@ public class NfcChargingTest {
 
         assertFalse(mNfcCharging.checkWlcCtlMsg(ndefMessage));
     }
+
+    @Test
+    public void testWLCL_Presence() {
+        NdefMessage ndefMessage = mock(NdefMessage.class);
+        when(mTagEndpoint.getNdef()).thenReturn(ndefMessage);
+        mNfcCharging.mFirstOccurrence = false;
+        NfcService nfcService = mock(NfcService.class);
+        when(NfcService.getInstance()).thenReturn(nfcService);
+        mNfcCharging.HandleWLCState();
+        verify(mNfcCharging.mNdefMessage).getRecords();
+        Assert.assertFalse(mNfcCharging.WLCL_Presence);
+    }
+
+    @Test
+    public void testHandleWlcCap_ModeReq_State6() {
+        NdefMessage ndefMessage = mock(NdefMessage.class);
+        NdefRecord ndefRecord = mock(NdefRecord.class);
+        when(ndefRecord.getType()).thenReturn(NfcCharging.WLCCAP);
+        byte[] payload = {0x01, 0x02, 0x01, 0x10, 0x02, 0x01};
+        when(ndefRecord.getPayload()).thenReturn(payload);
+        NdefRecord[] records = {ndefRecord};
+        when(ndefMessage.getRecords()).thenReturn(records);
+        when(mTagEndpoint.getNdef()).thenReturn(ndefMessage);
+        mNfcCharging.mFirstOccurrence = false;
+        NfcService nfcService = mock(NfcService.class);
+        when(NfcService.getInstance()).thenReturn(nfcService);
+        mNfcCharging.HandleWLCState();
+        Assert.assertEquals(1, mNfcCharging.WLCState);
+    }
+
 }
 
