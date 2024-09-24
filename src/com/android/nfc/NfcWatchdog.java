@@ -83,7 +83,7 @@ public class NfcWatchdog extends BroadcastReceiver {
     }
 
     void killNfcProcess() {
-        Log.i(TAG, "Killing nfc process.");
+        Log.wtf(TAG, "Killing nfc process.");
         Process.killProcess(Process.myPid());
     }
 
